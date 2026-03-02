@@ -1,0 +1,19 @@
+services:
+
+  # ── Frontend dev server ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: web/Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source for hot-reload; anonymous volumes keep container node_modules
+      - ./web:/repo/web
+      - ./packages:/repo/packages
+      - /repo/node_modules
+      - /repo/web/node_modules
+    environment:
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+      - VITE_SUPABASE_SERVICE_ROLE_KEY=${VITE_SUPABASE_SERVICE_ROLE_KEY}

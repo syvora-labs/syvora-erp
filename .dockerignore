@@ -1,0 +1,12 @@
+node_modules
+web/node_modules
+packages/*/node_modules
+
+.DS_Store
+.git
+.env
+.env.local
+.env.*.local
+
+web/dist
+memory
