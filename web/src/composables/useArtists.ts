@@ -1,10 +1,11 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabase'
 
 export interface Artist {
     id: string
     name: string
     picture_url: string | null
+    is_managed: boolean
     created_by: string | null
     updated_by: string | null
     created_at: string
@@ -66,6 +67,9 @@ async function enrichWithNames<T extends { created_by: string | null; updated_by
 }
 
 export function useArtists() {
+    const managedArtists = computed(() => artists.value.filter(a => a.is_managed))
+    const generalArtists = computed(() => artists.value.filter(a => !a.is_managed))
+
     async function fetchArtists() {
         loading.value = true
         const { data, error } = await supabase
@@ -77,7 +81,7 @@ export function useArtists() {
         loading.value = false
     }
 
-    async function createArtist(payload: { name: string }): Promise<Artist> {
+    async function createArtist(payload: { name: string; is_managed?: boolean }): Promise<Artist> {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('artists')
@@ -89,7 +93,7 @@ export function useArtists() {
         return data as Artist
     }
 
-    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null }) {
+    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null; is_managed?: boolean }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('artists')
@@ -188,6 +192,8 @@ export function useArtists() {
 
     return {
         artists,
+        managedArtists,
+        generalArtists,
         loading,
         fetchArtists,
         createArtist,
