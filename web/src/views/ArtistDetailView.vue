@@ -990,4 +990,45 @@ function formatDateTime(iso: string) {
 :deep(.btn-danger) {
     color: var(--color-error, #f87171);
 }
+
+@media (max-width: 600px) {
+    .artist-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .artist-avatar {
+        width: 72px;
+        height: 72px;
+    }
+
+    .artist-name {
+        font-size: 1.5rem;
+    }
+
+    .artist-name-row {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .booking-main,
+    .show-main {
+        flex-direction: column;
+    }
+
+    .booking-actions,
+    .show-actions {
+        align-self: flex-end;
+    }
+
+    .section-header {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+}
 </style>

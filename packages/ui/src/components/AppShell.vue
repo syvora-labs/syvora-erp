@@ -161,6 +161,8 @@
         padding-left: 0;
         padding-top: 0.5rem;
         border-top: 1px solid rgba(0, 0, 0, 0.06);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .shell-main {

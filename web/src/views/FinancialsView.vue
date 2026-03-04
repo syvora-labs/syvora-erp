@@ -608,4 +608,14 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 }
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
+
+@media (max-width: 600px) {
+    .summary-cards { grid-template-columns: 1fr; }
+    .summary-value { font-size: 1.2rem; }
+    .tab-header { flex-direction: column; align-items: stretch; }
+    .tab-header :deep(.syvora-btn) { width: 100%; }
+    .period-bar { flex-wrap: wrap; }
+    .cat-row { flex-wrap: wrap; }
+    .new-cat-inline { grid-template-columns: 1fr; }
+}
 </style>
