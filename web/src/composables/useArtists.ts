@@ -29,6 +29,28 @@ export interface ArtistShow {
     updater_name: string | null
 }
 
+export interface ArtistBooking {
+    id: string
+    artist_id: string
+    label_name: string
+    contact_name: string
+    contact_email: string | null
+    contact_phone: string | null
+    venue_location: string | null
+    slot_time: string | null
+    booking_date: string
+    technical_rider: string | null
+    gage: number | null
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+    notes: string | null
+    created_by: string | null
+    updated_by: string | null
+    created_at: string
+    updated_at: string
+    creator_name: string | null
+    updater_name: string | null
+}
+
 export interface ArtistNote {
     id: string
     artist_id: string
@@ -190,6 +212,52 @@ export function useArtists() {
         if (error) throw error
     }
 
+    async function fetchBookings(artistId: string): Promise<ArtistBooking[]> {
+        const { data, error } = await supabase
+            .from('artist_bookings')
+            .select('*')
+            .eq('artist_id', artistId)
+            .order('booking_date', { ascending: false })
+        if (error) throw error
+        return enrichWithNames(data ?? [])
+    }
+
+    async function createBooking(artistId: string, payload: {
+        label_name: string; contact_name: string; booking_date: string;
+        contact_email?: string | null; contact_phone?: string | null;
+        venue_location?: string | null; slot_time?: string | null;
+        technical_rider?: string | null; gage?: number | null; notes?: string | null;
+    }): Promise<ArtistBooking> {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data, error } = await supabase
+            .from('artist_bookings')
+            .insert({ artist_id: artistId, ...payload, created_by: user?.id })
+            .select()
+            .single()
+        if (error) throw error
+        return { ...data, creator_name: null, updater_name: null } as ArtistBooking
+    }
+
+    async function updateBooking(id: string, payload: {
+        label_name?: string; contact_name?: string; booking_date?: string;
+        contact_email?: string | null; contact_phone?: string | null;
+        venue_location?: string | null; slot_time?: string | null;
+        technical_rider?: string | null; gage?: number | null;
+        status?: string; notes?: string | null;
+    }) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { error } = await supabase
+            .from('artist_bookings')
+            .update({ ...payload, updated_by: user?.id })
+            .eq('id', id)
+        if (error) throw error
+    }
+
+    async function deleteBooking(id: string) {
+        const { error } = await supabase.from('artist_bookings').delete().eq('id', id)
+        if (error) throw error
+    }
+
     return {
         artists,
         managedArtists,
@@ -208,5 +276,9 @@ export function useArtists() {
         createShow,
         updateShow,
         deleteShow,
+        fetchBookings,
+        createBooking,
+        updateBooking,
+        deleteBooking,
     }
 }
