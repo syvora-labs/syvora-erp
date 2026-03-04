@@ -13,6 +13,21 @@ export interface Artist {
     updater_name: string | null
 }
 
+export interface ArtistShow {
+    id: string
+    artist_id: string
+    show_name: string
+    show_date: string
+    slot_time: string | null
+    notes: string | null
+    created_by: string | null
+    updated_by: string | null
+    created_at: string
+    updated_at: string
+    creator_name: string | null
+    updater_name: string | null
+}
+
 export interface ArtistNote {
     id: string
     artist_id: string
@@ -136,6 +151,41 @@ export function useArtists() {
         if (error) throw error
     }
 
+    async function fetchShows(artistId: string): Promise<ArtistShow[]> {
+        const { data, error } = await supabase
+            .from('artist_shows')
+            .select('*')
+            .eq('artist_id', artistId)
+            .order('show_date', { ascending: false })
+        if (error) throw error
+        return enrichWithNames(data ?? [])
+    }
+
+    async function createShow(artistId: string, payload: { show_name: string; show_date: string; slot_time?: string | null; notes?: string | null }): Promise<ArtistShow> {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data, error } = await supabase
+            .from('artist_shows')
+            .insert({ artist_id: artistId, ...payload, created_by: user?.id })
+            .select()
+            .single()
+        if (error) throw error
+        return { ...data, creator_name: null, updater_name: null } as ArtistShow
+    }
+
+    async function updateShow(id: string, payload: { show_name?: string; show_date?: string; slot_time?: string | null; notes?: string | null }) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { error } = await supabase
+            .from('artist_shows')
+            .update({ ...payload, updated_by: user?.id })
+            .eq('id', id)
+        if (error) throw error
+    }
+
+    async function deleteShow(id: string) {
+        const { error } = await supabase.from('artist_shows').delete().eq('id', id)
+        if (error) throw error
+    }
+
     return {
         artists,
         loading,
@@ -148,5 +198,9 @@ export function useArtists() {
         createNote,
         updateNote,
         deleteNote,
+        fetchShows,
+        createShow,
+        updateShow,
+        deleteShow,
     }
 }

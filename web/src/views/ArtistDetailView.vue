@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useArtists, type Artist, type ArtistNote } from '../composables/useArtists'
+import { useArtists, type Artist, type ArtistNote, type ArtistShow } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
@@ -11,19 +11,28 @@ const route = useRoute()
 const router = useRouter()
 const artistId = computed(() => route.params.id as string)
 
-const { artists, fetchArtists, fetchNotes, createNote, updateNote, deleteNote } = useArtists()
+const { artists, fetchArtists, fetchNotes, createNote, updateNote, deleteNote, fetchShows, createShow, updateShow, deleteShow } = useArtists()
 
 const artist = ref<Artist | null>(null)
 const notes = ref<ArtistNote[]>([])
+const shows = ref<ArtistShow[]>([])
 const loadingArtist = ref(true)
 const loadingNotes = ref(true)
+const loadingShows = ref(true)
 
+// Notes modal
 const showModal = ref(false)
 const editingNote = ref<ArtistNote | null>(null)
 const saving = ref(false)
 const error = ref('')
-
 const form = ref({ title: '', content: '' })
+
+// Shows modal
+const showShowModal = ref(false)
+const editingShow = ref<ArtistShow | null>(null)
+const savingShow = ref(false)
+const showError = ref('')
+const showForm = ref({ show_name: '', show_date: '', slot_time: '', notes: '' })
 
 onMounted(async () => {
     // Ensure artists are loaded
@@ -31,13 +40,19 @@ onMounted(async () => {
     artist.value = artists.value.find(a => a.id === artistId.value) ?? null
     loadingArtist.value = false
 
-    await loadNotes()
+    await Promise.all([loadNotes(), loadShows()])
 })
 
 async function loadNotes() {
     loadingNotes.value = true
     notes.value = await fetchNotes(artistId.value)
     loadingNotes.value = false
+}
+
+async function loadShows() {
+    loadingShows.value = true
+    shows.value = await fetchShows(artistId.value)
+    loadingShows.value = false
 }
 
 function openCreate() {
@@ -97,6 +112,73 @@ async function handleDeleteNote(note: ArtistNote) {
     }
 }
 
+// Shows handlers
+function openCreateShow() {
+    editingShow.value = null
+    showForm.value = { show_name: '', show_date: '', slot_time: '', notes: '' }
+    showError.value = ''
+    showShowModal.value = true
+}
+
+function openEditShow(show: ArtistShow) {
+    editingShow.value = show
+    showForm.value = {
+        show_name: show.show_name,
+        show_date: show.show_date,
+        slot_time: show.slot_time ?? '',
+        notes: show.notes ?? '',
+    }
+    showError.value = ''
+    showShowModal.value = true
+}
+
+function closeShowModal() {
+    showShowModal.value = false
+    editingShow.value = null
+}
+
+async function saveShow() {
+    if (!showForm.value.show_name.trim()) {
+        showError.value = 'Show name is required.'
+        return
+    }
+    if (!showForm.value.show_date) {
+        showError.value = 'Date is required.'
+        return
+    }
+    savingShow.value = true
+    showError.value = ''
+    try {
+        const payload = {
+            show_name: showForm.value.show_name.trim(),
+            show_date: showForm.value.show_date,
+            slot_time: showForm.value.slot_time || null,
+            notes: showForm.value.notes || null,
+        }
+        if (editingShow.value) {
+            await updateShow(editingShow.value.id, payload)
+        } else {
+            await createShow(artistId.value, payload)
+        }
+        await loadShows()
+        closeShowModal()
+    } catch (e: any) {
+        showError.value = e.message ?? 'Failed to save.'
+    } finally {
+        savingShow.value = false
+    }
+}
+
+async function handleDeleteShow(show: ArtistShow) {
+    if (!confirm(`Remove show "${show.show_name}"?`)) return
+    try {
+        await deleteShow(show.id)
+        shows.value = shows.value.filter(s => s.id !== show.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to delete.')
+    }
+}
+
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
@@ -129,9 +211,44 @@ function formatDateTime(iso: string) {
                 </div>
             </div>
 
+            <!-- Shows -->
+            <div class="shows-section">
+                <div class="section-header">
+                    <h2 class="section-title">Shows</h2>
+                    <SyvoraButton @click="openCreateShow">+ Add Show</SyvoraButton>
+                </div>
+
+                <div v-if="loadingShows" class="loading-text">Loading shows…</div>
+
+                <SyvoraEmptyState
+                    v-else-if="shows.length === 0"
+                    title="No shows yet"
+                    description="Assign this artist to a show to track their bookings."
+                />
+
+                <div v-else class="shows-list">
+                    <div v-for="show in shows" :key="show.id" class="show-card">
+                        <div class="show-main">
+                            <div class="show-info">
+                                <span class="show-name">{{ show.show_name }}</span>
+                                <div class="show-meta">
+                                    <span class="show-date">{{ formatDate(show.show_date) }}</span>
+                                    <span v-if="show.slot_time" class="show-slot">· Slot: {{ show.slot_time.slice(0, 5) }}</span>
+                                </div>
+                                <p v-if="show.notes" class="show-notes">{{ show.notes }}</p>
+                            </div>
+                            <div class="show-actions">
+                                <SyvoraButton variant="ghost" size="sm" @click="openEditShow(show)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDeleteShow(show)">Remove</SyvoraButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="notes-section">
-                <div class="notes-header">
-                    <h2 class="notes-title">Notes</h2>
+                <div class="section-header">
+                    <h2 class="section-title">Notes</h2>
                     <SyvoraButton @click="openCreate">+ New Note</SyvoraButton>
                 </div>
 
@@ -168,6 +285,42 @@ function formatDateTime(iso: string) {
 
         <div v-else class="loading-text">Artist not found.</div>
     </div>
+
+    <SyvoraModal
+        v-if="showShowModal"
+        :title="editingShow ? 'Edit Show' : 'Add Show'"
+        size="lg"
+        @close="closeShowModal"
+    >
+        <div class="modal-form">
+            <SyvoraFormField label="Show / Event name" for="show-name">
+                <SyvoraInput id="show-name" v-model="showForm.show_name" placeholder="e.g. Fabric London, Awakenings, …" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Date" for="show-date">
+                <SyvoraInput id="show-date" v-model="showForm.show_date" type="date" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Slot time (optional)" for="show-slot">
+                <SyvoraInput id="show-slot" v-model="showForm.slot_time" type="time" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Notes (optional)" for="show-notes">
+                <SyvoraTextarea
+                    id="show-notes"
+                    v-model="showForm.notes"
+                    placeholder="Stage, fee, contact, …"
+                    :rows="4"
+                />
+            </SyvoraFormField>
+
+            <p v-if="showError" class="error-msg">{{ showError }}</p>
+        </div>
+        <template #footer>
+            <SyvoraButton variant="ghost" @click="closeShowModal">Cancel</SyvoraButton>
+            <SyvoraButton :loading="savingShow" @click="saveShow">{{ editingShow ? 'Save Changes' : 'Add Show' }}</SyvoraButton>
+        </template>
+    </SyvoraModal>
 
     <SyvoraModal
         v-if="showModal"
@@ -273,23 +426,91 @@ function formatDateTime(iso: string) {
     font-size: 0.875rem;
 }
 
-/* Notes */
-.notes-section {
-    margin-top: 1rem;
-}
-
-.notes-header {
+/* Shared section header */
+.section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.25rem;
 }
 
-.notes-title {
+.section-title {
     font-size: 1.25rem;
     font-weight: 700;
     margin: 0;
     color: var(--color-text);
+}
+
+/* Shows */
+.shows-section {
+    margin-top: 1rem;
+    margin-bottom: 2.5rem;
+}
+
+.shows-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.show-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 0.875rem;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.15s;
+}
+
+.show-card:hover {
+    border-color: var(--color-accent);
+}
+
+.show-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.show-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.show-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.show-meta {
+    display: flex;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.show-slot {
+    color: var(--color-accent);
+}
+
+.show-notes {
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    white-space: pre-wrap;
+}
+
+.show-actions {
+    display: flex;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+/* Notes */
+.notes-section {
+    margin-top: 1rem;
 }
 
 .notes-list {
