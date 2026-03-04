@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArtists, type Artist } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraEmptyState,
+    SyvoraInput, SyvoraEmptyState, SyvoraTabs,
 } from '@syvora/ui'
 
 const router = useRouter()
-const { artists, loading, fetchArtists, createArtist, updateArtist, deleteArtist, uploadArtistPicture } = useArtists()
+const { managedArtists, generalArtists, loading, fetchArtists, createArtist, updateArtist, deleteArtist, uploadArtistPicture } = useArtists()
+
+const activeTab = ref<'managed' | 'general'>('managed')
+const displayedArtists = computed(() => activeTab.value === 'managed' ? managedArtists.value : generalArtists.value)
 
 const showModal = ref(false)
 const editingArtist = ref<Artist | null>(null)
 const saving = ref(false)
 const error = ref('')
 
-const form = ref({ name: '' })
+const form = ref({ name: '', is_managed: false })
 const pictureFile = ref<File | null>(null)
 const picturePreview = ref<string | null>(null)
 const pictureInput = ref<HTMLInputElement | null>(null)
@@ -24,7 +27,7 @@ onMounted(fetchArtists)
 
 function openCreate() {
     editingArtist.value = null
-    form.value = { name: '' }
+    form.value = { name: '', is_managed: false }
     pictureFile.value = null
     picturePreview.value = null
     error.value = ''
@@ -33,7 +36,7 @@ function openCreate() {
 
 function openEdit(artist: Artist) {
     editingArtist.value = artist
-    form.value = { name: artist.name }
+    form.value = { name: artist.name, is_managed: artist.is_managed }
     pictureFile.value = null
     picturePreview.value = artist.picture_url ?? null
     error.value = ''
@@ -65,9 +68,9 @@ async function saveArtist() {
             if (pictureFile.value) {
                 picture_url = await uploadArtistPicture(pictureFile.value, editingArtist.value.id)
             }
-            await updateArtist(editingArtist.value.id, { name: form.value.name.trim(), picture_url })
+            await updateArtist(editingArtist.value.id, { name: form.value.name.trim(), picture_url, is_managed: form.value.is_managed })
         } else {
-            const newArtist = await createArtist({ name: form.value.name.trim() })
+            const newArtist = await createArtist({ name: form.value.name.trim(), is_managed: form.value.is_managed })
             if (pictureFile.value) {
                 const picture_url = await uploadArtistPicture(pictureFile.value, newArtist.id)
                 await updateArtist(newArtist.id, { picture_url })
@@ -109,13 +112,21 @@ function formatDate(iso: string) {
             <SyvoraButton @click="openCreate">+ New Artist</SyvoraButton>
         </div>
 
+        <SyvoraTabs
+            v-model="activeTab"
+            :tabs="[
+                { key: 'managed', label: 'Managed by EB', count: managedArtists.length },
+                { key: 'general', label: 'General', count: generalArtists.length },
+            ]"
+        />
+
         <div v-if="loading" class="loading-text">Loading…</div>
 
-        <SyvoraEmptyState v-else-if="artists.length === 0" title="No artists yet" description="Add your first artist to get started." />
+        <SyvoraEmptyState v-else-if="displayedArtists.length === 0" title="No artists yet" description="Add your first artist to get started." />
 
         <div v-else class="artists-grid">
             <div
-                v-for="artist in artists"
+                v-for="artist in displayedArtists"
                 :key="artist.id"
                 class="artist-card"
                 @click="openArtist(artist)"
@@ -155,6 +166,11 @@ function formatDate(iso: string) {
             <SyvoraFormField label="Artist Name" for="artist-name">
                 <SyvoraInput id="artist-name" v-model="form.name" placeholder="e.g. DJ Horizon" />
             </SyvoraFormField>
+
+            <label class="checkbox-field">
+                <input type="checkbox" v-model="form.is_managed" />
+                <span>Managed by EB</span>
+            </label>
 
             <p v-if="error" class="error-msg">{{ error }}</p>
         </div>
@@ -344,6 +360,22 @@ function formatDate(iso: string) {
     color: var(--color-error, #f87171);
     font-size: 0.85rem;
     margin: 0;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    cursor: pointer;
+}
+
+.checkbox-field input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--color-accent);
+    cursor: pointer;
 }
 
 :deep(.btn-danger) {

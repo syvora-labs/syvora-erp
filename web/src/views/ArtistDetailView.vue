@@ -206,7 +206,10 @@ function formatDateTime(iso: string) {
                     </div>
                 </div>
                 <div class="artist-info">
-                    <h1 class="artist-name">{{ artist.name }}</h1>
+                    <div class="artist-name-row">
+                        <h1 class="artist-name">{{ artist.name }}</h1>
+                        <span v-if="artist.is_managed" class="managed-badge">Managed by EB</span>
+                    </div>
                     <p class="artist-since">Artist since {{ formatDate(artist.created_at) }}</p>
                 </div>
             </div>
@@ -413,11 +416,29 @@ function formatDateTime(iso: string) {
     background: var(--color-surface-raised, rgba(255,255,255,0.04));
 }
 
+.artist-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .artist-name {
     font-size: 2rem;
     font-weight: 800;
-    margin: 0 0 0.25rem;
+    margin: 0;
     color: var(--color-text);
+}
+
+.managed-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: var(--color-text-on-accent, #fff);
+    white-space: nowrap;
 }
 
 .artist-since {
