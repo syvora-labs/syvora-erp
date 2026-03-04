@@ -21,8 +21,11 @@ export interface Release {
     artwork_url: string | null
     release_date: string | null
     created_by: string | null
+    updated_by: string | null
     created_at: string
     updated_at: string
+    creator_name: string | null
+    updater_name: string | null
     tracks?: Track[]
 }
 
@@ -37,7 +40,27 @@ export function useReleases() {
             .select('*, tracks(*)')
             .order('release_date', { ascending: false })
         if (error) throw error
-        releases.value = (data ?? []) as Release[]
+
+        const raw = (data ?? []) as Omit<Release, 'creator_name' | 'updater_name'>[]
+
+        const userIds = [...new Set(
+            raw.flatMap(r => [r.created_by, r.updated_by]).filter((id): id is string => !!id)
+        )]
+
+        let profileMap: Record<string, string | null> = {}
+        if (userIds.length) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, display_name')
+                .in('id', userIds)
+            profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.display_name]))
+        }
+
+        releases.value = raw.map(r => ({
+            ...r,
+            creator_name: r.created_by ? (profileMap[r.created_by] ?? null) : null,
+            updater_name: r.updated_by ? (profileMap[r.updated_by] ?? null) : null,
+        }))
         loading.value = false
     }
 
@@ -68,9 +91,10 @@ export function useReleases() {
         artwork_url?: string | null
         release_date?: string | null
     }) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('releases')
-            .update(payload)
+            .update({ ...payload, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchReleases()

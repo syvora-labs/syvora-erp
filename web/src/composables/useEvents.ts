@@ -13,8 +13,11 @@ export interface LabelEvent {
     is_draft: boolean
     is_archived: boolean
     created_by: string | null
+    updated_by: string | null
     created_at: string
     updated_at: string
+    creator_name: string | null
+    updater_name: string | null
 }
 
 const events = ref<LabelEvent[]>([])
@@ -31,7 +34,27 @@ export function useEvents() {
             .select('*')
             .order('event_date', { ascending: true, nullsFirst: false })
         if (error) throw error
-        events.value = (data ?? []) as LabelEvent[]
+
+        const raw = (data ?? []) as Omit<LabelEvent, 'creator_name' | 'updater_name'>[]
+
+        const userIds = [...new Set(
+            raw.flatMap(e => [e.created_by, e.updated_by]).filter((id): id is string => !!id)
+        )]
+
+        let profileMap: Record<string, string | null> = {}
+        if (userIds.length) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, display_name')
+                .in('id', userIds)
+            profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.display_name]))
+        }
+
+        events.value = raw.map(e => ({
+            ...e,
+            creator_name: e.created_by ? (profileMap[e.created_by] ?? null) : null,
+            updater_name: e.updated_by ? (profileMap[e.updated_by] ?? null) : null,
+        }))
         loading.value = false
     }
 
@@ -64,45 +87,50 @@ export function useEvents() {
         artwork_url?: string | null
         ticket_link?: string | null
     }) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('events')
-            .update(payload)
+            .update({ ...payload, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchEvents()
     }
 
     async function publishEvent(id: string) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('events')
-            .update({ is_draft: false })
+            .update({ is_draft: false, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchEvents()
     }
 
     async function unpublishEvent(id: string) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('events')
-            .update({ is_draft: true })
+            .update({ is_draft: true, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchEvents()
     }
 
     async function archiveEvent(id: string) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('events')
-            .update({ is_archived: true })
+            .update({ is_archived: true, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchEvents()
     }
 
     async function unarchiveEvent(id: string) {
+        const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('events')
-            .update({ is_archived: false })
+            .update({ is_archived: false, updated_by: user?.id })
             .eq('id', id)
         if (error) throw error
         await fetchEvents()

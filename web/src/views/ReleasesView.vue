@@ -308,6 +308,10 @@ function formatDate(d: string | null) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+function formatAuditDate(d: string) {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 </script>
 
 <template>
@@ -360,6 +364,11 @@ function formatDate(d: string | null) {
                     <h3 class="release-title">{{ release.title }}</h3>
                     <p class="release-artist">{{ release.artist }}</p>
                     <p v-if="release.description" class="release-desc">{{ release.description }}</p>
+
+                    <div class="release-audit">
+                        <span>Created by {{ release.creator_name ?? 'Unknown' }} · {{ formatAuditDate(release.created_at) }}</span>
+                        <span v-if="release.updater_name"> · Updated by {{ release.updater_name }} · {{ formatAuditDate(release.updated_at) }}</span>
+                    </div>
 
                     <!-- Track count toggle -->
                     <button
@@ -640,6 +649,10 @@ function formatDate(d: string | null) {
 .release-desc {
     font-size: 0.85rem; color: var(--color-text-muted); margin: 0.25rem 0 0;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.release-audit {
+    font-size: 0.72rem; color: var(--color-text-muted);
+    opacity: 0.7; margin-top: 0.125rem;
 }
 .release-actions { display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.75rem; }
 

@@ -169,6 +169,10 @@ function isUpcoming(d: string | null) {
     if (!d) return false
     return new Date(d) >= new Date()
 }
+
+function formatAuditDate(d: string) {
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 </script>
 
 <template>
@@ -237,6 +241,11 @@ function isUpcoming(d: string | null) {
                             </span>
                         </div>
 
+                        <div class="event-audit">
+                            <span>Created by {{ event.creator_name ?? 'Unknown' }} · {{ formatAuditDate(event.created_at) }}</span>
+                            <span v-if="event.updater_name"> · Updated by {{ event.updater_name }} · {{ formatAuditDate(event.updated_at) }}</span>
+                        </div>
+
                         <div class="event-footer">
                             <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" class="ticket-link">
                                 Tickets ↗
@@ -293,6 +302,11 @@ function isUpcoming(d: string | null) {
                             <span v-for="(artist, i) in event.lineup" :key="i" class="badge badge-deposit">
                                 {{ artist }}
                             </span>
+                        </div>
+
+                        <div class="event-audit">
+                            <span>Created by {{ event.creator_name ?? 'Unknown' }} · {{ formatAuditDate(event.created_at) }}</span>
+                            <span v-if="event.updater_name"> · Updated by {{ event.updater_name }} · {{ formatAuditDate(event.updated_at) }}</span>
                         </div>
 
                         <div class="event-footer">
@@ -422,6 +436,11 @@ function isUpcoming(d: string | null) {
 
 .event-lineup { display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem; }
 .lineup-label { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+.event-audit {
+    font-size: 0.75rem; color: var(--color-text-muted);
+    opacity: 0.7;
+}
 
 .event-footer {
     display: flex; align-items: center; justify-content: space-between;
