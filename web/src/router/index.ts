@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import LoginView from '../views/LoginView.vue'
 import ReleasesView from '../views/ReleasesView.vue'
 import EventsView from '../views/EventsView.vue'
+import ArtistsView from '../views/ArtistsView.vue'
+import ArtistDetailView from '../views/ArtistDetailView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import AdminView from '../views/AdminView.vue'
 
@@ -13,6 +15,8 @@ const router = createRouter({
         { path: '/', redirect: '/releases' },
         { path: '/releases', component: ReleasesView, meta: { requiresAuth: true } },
         { path: '/events', component: EventsView, meta: { requiresAuth: true } },
+        { path: '/artists', component: ArtistsView, meta: { requiresAuth: true } },
+        { path: '/artists/:id', component: ArtistDetailView, meta: { requiresAuth: true } },
         { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
         { path: '/admin', component: AdminView, meta: { requiresAuth: true } },
     ],
