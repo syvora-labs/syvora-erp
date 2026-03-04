@@ -15,4 +15,6 @@ RUN npm install
 WORKDIR /repo/web
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+# Re-run install at startup so anonymous-volume node_modules stays in sync
+# with package.json changes (fast no-op when already up to date)
+CMD sh -c "cd /repo && npm install && cd /repo/web && npm run dev -- --host"

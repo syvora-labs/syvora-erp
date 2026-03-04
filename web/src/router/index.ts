@@ -7,6 +7,7 @@ import ArtistsView from '../views/ArtistsView.vue'
 import ArtistDetailView from '../views/ArtistDetailView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import AdminView from '../views/AdminView.vue'
+import FinancialsView from '../views/FinancialsView.vue'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -17,6 +18,7 @@ const router = createRouter({
         { path: '/events', component: EventsView, meta: { requiresAuth: true } },
         { path: '/artists', component: ArtistsView, meta: { requiresAuth: true } },
         { path: '/artists/:id', component: ArtistDetailView, meta: { requiresAuth: true } },
+        { path: '/financials', component: FinancialsView, meta: { requiresAuth: true } },
         { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
         { path: '/admin', component: AdminView, meta: { requiresAuth: true } },
     ],

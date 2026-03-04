@@ -23,6 +23,7 @@ async function handleSignOut() {
             <RouterLink to="/releases" class="nav-link" active-class="nav-link--active">Releases</RouterLink>
             <RouterLink to="/events" class="nav-link" active-class="nav-link--active">Events</RouterLink>
             <RouterLink to="/artists" class="nav-link" active-class="nav-link--active">Artists</RouterLink>
+            <RouterLink to="/financials" class="nav-link" active-class="nav-link--active">Financials</RouterLink>
             <RouterLink v-if="isAdmin" to="/admin" class="nav-link" active-class="nav-link--active">Users</RouterLink>
         </template>
 
