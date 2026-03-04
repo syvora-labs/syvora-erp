@@ -3,13 +3,17 @@ import { ref, onMounted } from 'vue'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraTextarea, SyvoraEmptyState
+    SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraTabs
 } from '@syvora/ui'
 
 const {
-    events, loading, fetchEvents, createEvent, updateEvent, deleteEvent,
+    activeEvents, archivedEvents, loading,
+    fetchEvents, createEvent, updateEvent, deleteEvent,
     publishEvent, unpublishEvent, uploadEventArtwork,
+    archiveEvent, unarchiveEvent,
 } = useEvents()
+
+const activeTab = ref<'active' | 'archived'>('active')
 
 const showModal = ref(false)
 const editingEvent = ref<LabelEvent | null>(null)
@@ -127,6 +131,23 @@ async function handleUnpublish(event: LabelEvent) {
     }
 }
 
+async function handleArchive(event: LabelEvent) {
+    if (!confirm(`Archive "${event.title}"? It will be hidden from the active list.`)) return
+    try {
+        await archiveEvent(event.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to archive event.')
+    }
+}
+
+async function handleUnarchive(event: LabelEvent) {
+    try {
+        await unarchiveEvent(event.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to restore event.')
+    }
+}
+
 async function handleDelete(event: LabelEvent) {
     if (!confirm(`Delete "${event.title}"?`)) return
     try {
@@ -160,73 +181,130 @@ function isUpcoming(d: string | null) {
             <SyvoraButton @click="openCreate">+ New Event</SyvoraButton>
         </div>
 
+        <SyvoraTabs
+            v-model="activeTab"
+            :tabs="[
+                { key: 'active', label: 'Active', count: activeEvents.length },
+                { key: 'archived', label: 'Archived', count: archivedEvents.length },
+            ]"
+        />
+
         <div v-if="loading" class="loading-text">Loading events…</div>
 
-        <SyvoraEmptyState v-else-if="events.length === 0">
-            No events yet. Create your first one.
-        </SyvoraEmptyState>
+        <!-- Active events -->
+        <template v-else-if="activeTab === 'active'">
+            <SyvoraEmptyState v-if="activeEvents.length === 0">
+                No active events. Create your first one.
+            </SyvoraEmptyState>
 
-        <div v-else class="events-list">
-            <div
-                v-for="event in events"
-                :key="event.id"
-                class="event-card"
-                :class="{ 'event-card--draft': event.is_draft }"
-            >
-                <div class="event-artwork">
-                    <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
-                    <div v-else class="event-artwork-placeholder">◆</div>
-                </div>
-
-                <div class="event-body">
-                    <div class="event-meta">
-                        <!-- Draft / Published status -->
-                        <span v-if="event.is_draft" class="badge badge-draft">Draft</span>
-                        <span v-else class="badge badge-published">Published</span>
-
-                        <!-- Upcoming / Past (only for published) -->
-                        <span
-                            v-if="!event.is_draft"
-                            class="badge"
-                            :class="isUpcoming(event.event_date) ? 'badge-success' : 'badge-warning'"
-                        >
-                            {{ isUpcoming(event.event_date) ? 'Upcoming' : 'Past' }}
-                        </span>
-
-                        <span class="event-date">{{ formatEventDate(event.event_date) }}</span>
+            <div v-else class="events-list">
+                <div
+                    v-for="event in activeEvents"
+                    :key="event.id"
+                    class="event-card"
+                    :class="{ 'event-card--draft': event.is_draft }"
+                >
+                    <div class="event-artwork">
+                        <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
+                        <div v-else class="event-artwork-placeholder">◆</div>
                     </div>
 
-                    <h3 class="event-title">{{ event.title }}</h3>
+                    <div class="event-body">
+                        <div class="event-meta">
+                            <span v-if="event.is_draft" class="badge badge-draft">Draft</span>
+                            <span v-else class="badge badge-published">Published</span>
 
-                    <p v-if="event.location" class="event-location">📍 {{ event.location }}</p>
-                    <p v-if="event.description" class="event-desc">{{ event.description }}</p>
+                            <span
+                                v-if="!event.is_draft"
+                                class="badge"
+                                :class="isUpcoming(event.event_date) ? 'badge-success' : 'badge-warning'"
+                            >
+                                {{ isUpcoming(event.event_date) ? 'Upcoming' : 'Past' }}
+                            </span>
 
-                    <div v-if="event.lineup.length" class="event-lineup">
-                        <span class="lineup-label">Lineup:</span>
-                        <span v-for="(artist, i) in event.lineup" :key="i" class="badge badge-deposit">
-                            {{ artist }}
-                        </span>
-                    </div>
+                            <span class="event-date">{{ formatEventDate(event.event_date) }}</span>
+                        </div>
 
-                    <div class="event-footer">
-                        <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" class="ticket-link">
-                            Tickets ↗
-                        </a>
-                        <div class="event-actions">
-                            <!-- Publish / Unpublish -->
-                            <SyvoraButton v-if="event.is_draft" size="sm" @click="handlePublish(event)">
-                                Publish
-                            </SyvoraButton>
-                            <SyvoraButton v-else variant="ghost" size="sm" @click="handleUnpublish(event)">
-                                Revert to Draft
-                            </SyvoraButton>
-                            <SyvoraButton variant="ghost" size="sm" @click="openEdit(event)">Edit</SyvoraButton>
-                            <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                        <h3 class="event-title">{{ event.title }}</h3>
+
+                        <p v-if="event.location" class="event-location">📍 {{ event.location }}</p>
+                        <p v-if="event.description" class="event-desc">{{ event.description }}</p>
+
+                        <div v-if="event.lineup.length" class="event-lineup">
+                            <span class="lineup-label">Lineup:</span>
+                            <span v-for="(artist, i) in event.lineup" :key="i" class="badge badge-deposit">
+                                {{ artist }}
+                            </span>
+                        </div>
+
+                        <div class="event-footer">
+                            <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" class="ticket-link">
+                                Tickets ↗
+                            </a>
+                            <div class="event-actions">
+                                <SyvoraButton v-if="event.is_draft" size="sm" @click="handlePublish(event)">
+                                    Publish
+                                </SyvoraButton>
+                                <SyvoraButton v-else variant="ghost" size="sm" @click="handleUnpublish(event)">
+                                    Revert to Draft
+                                </SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click="openEdit(event)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click="handleArchive(event)">Archive</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </template>
+
+        <!-- Archived events -->
+        <template v-else>
+            <SyvoraEmptyState v-if="archivedEvents.length === 0">
+                No archived events.
+            </SyvoraEmptyState>
+
+            <div v-else class="events-list">
+                <div
+                    v-for="event in archivedEvents"
+                    :key="event.id"
+                    class="event-card event-card--archived"
+                >
+                    <div class="event-artwork">
+                        <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
+                        <div v-else class="event-artwork-placeholder">◆</div>
+                    </div>
+
+                    <div class="event-body">
+                        <div class="event-meta">
+                            <span class="badge badge-archived">Archived</span>
+                            <span v-if="event.is_draft" class="badge badge-draft">Draft</span>
+                            <span v-else class="badge badge-published">Published</span>
+                            <span class="event-date">{{ formatEventDate(event.event_date) }}</span>
+                        </div>
+
+                        <h3 class="event-title">{{ event.title }}</h3>
+
+                        <p v-if="event.location" class="event-location">📍 {{ event.location }}</p>
+                        <p v-if="event.description" class="event-desc">{{ event.description }}</p>
+
+                        <div v-if="event.lineup.length" class="event-lineup">
+                            <span class="lineup-label">Lineup:</span>
+                            <span v-for="(artist, i) in event.lineup" :key="i" class="badge badge-deposit">
+                                {{ artist }}
+                            </span>
+                        </div>
+
+                        <div class="event-footer">
+                            <div class="event-actions">
+                                <SyvoraButton variant="ghost" size="sm" @click="handleUnarchive(event)">Restore</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <SyvoraModal v-if="showModal" :title="editingEvent ? 'Edit Event' : 'New Event'" size="lg" @close="closeModal">
@@ -293,11 +371,12 @@ function isUpcoming(d: string | null) {
 .page { max-width: 960px; margin: 0 auto; }
 .page-header {
     display: flex; align-items: flex-start; justify-content: space-between;
-    margin-bottom: 2rem; gap: 1rem;
+    margin-bottom: 1.5rem; gap: 1rem;
 }
 .page-title { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 0.25rem; }
 .page-subtitle { font-size: 0.9375rem; color: var(--color-text-muted); margin: 0; }
 .loading-text { color: var(--color-text-muted); text-align: center; padding: 3rem 0; }
+
 
 .events-list { display: flex; flex-direction: column; gap: 1rem; }
 
@@ -316,6 +395,9 @@ function isUpcoming(d: string | null) {
 .event-card--draft {
     opacity: 0.82;
     border-style: dashed;
+}
+.event-card--archived {
+    opacity: 0.6;
 }
 
 .event-artwork { width: 160px; flex-shrink: 0; overflow: hidden; }
@@ -359,6 +441,11 @@ function isUpcoming(d: string | null) {
     background: rgba(22, 163, 74, 0.1);
     color: var(--color-accent);
     border: 1px solid rgba(22, 163, 74, 0.22);
+}
+.badge-archived {
+    background: rgba(120, 80, 0, 0.09);
+    color: rgba(120, 80, 0, 0.75);
+    border: 1px solid rgba(120, 80, 0, 0.18);
 }
 
 /* Modal */

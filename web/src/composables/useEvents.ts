@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabase'
 
 export interface LabelEvent {
@@ -11,6 +11,7 @@ export interface LabelEvent {
     artwork_url: string | null
     ticket_link: string | null
     is_draft: boolean
+    is_archived: boolean
     created_by: string | null
     created_at: string
     updated_at: string
@@ -20,12 +21,15 @@ const events = ref<LabelEvent[]>([])
 const loading = ref(false)
 
 export function useEvents() {
+    const activeEvents = computed(() => events.value.filter(e => !e.is_archived))
+    const archivedEvents = computed(() => events.value.filter(e => e.is_archived).reverse())
+
     async function fetchEvents() {
         loading.value = true
         const { data, error } = await supabase
             .from('events')
             .select('*')
-            .order('event_date', { ascending: true })
+            .order('event_date', { ascending: true, nullsFirst: false })
         if (error) throw error
         events.value = (data ?? []) as LabelEvent[]
         loading.value = false
@@ -86,6 +90,24 @@ export function useEvents() {
         await fetchEvents()
     }
 
+    async function archiveEvent(id: string) {
+        const { error } = await supabase
+            .from('events')
+            .update({ is_archived: true })
+            .eq('id', id)
+        if (error) throw error
+        await fetchEvents()
+    }
+
+    async function unarchiveEvent(id: string) {
+        const { error } = await supabase
+            .from('events')
+            .update({ is_archived: false })
+            .eq('id', id)
+        if (error) throw error
+        await fetchEvents()
+    }
+
     async function deleteEvent(id: string) {
         const { error } = await supabase
             .from('events')
@@ -108,6 +130,8 @@ export function useEvents() {
 
     return {
         events,
+        activeEvents,
+        archivedEvents,
         loading,
         fetchEvents,
         createEvent,
@@ -115,6 +139,8 @@ export function useEvents() {
         deleteEvent,
         publishEvent,
         unpublishEvent,
+        archiveEvent,
+        unarchiveEvent,
         uploadEventArtwork,
     }
 }
