@@ -381,4 +381,19 @@ function formatDate(iso: string) {
 :deep(.btn-danger) {
     color: var(--color-error, #f87171);
 }
+
+@media (max-width: 600px) {
+    .page-header {
+        flex-wrap: wrap;
+    }
+
+    .page-header :deep(.syvora-btn) {
+        width: 100%;
+    }
+
+    .artists-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.75rem;
+    }
+}
 </style>

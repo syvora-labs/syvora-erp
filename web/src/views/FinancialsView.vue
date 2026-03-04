@@ -499,7 +499,7 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 
 /* Charts */
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-@media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .charts-row { grid-template-columns: 1fr; } }
 .chart-box {
     background: var(--color-surface); border: 1px solid var(--color-border);
     border-radius: 1rem; padding: 1.25rem;
@@ -528,10 +528,10 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 .tx-type--income { background: rgba(34,197,94,0.15); color: #22c55e; }
 .tx-type--expense { background: rgba(239,68,68,0.15); color: #ef4444; }
 
-.tx-desc { flex: 1; min-width: 120px; font-size: 0.875rem; color: var(--color-text); }
+.tx-desc { flex: 1; min-width: 120px; font-size: 0.875rem; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-cat {
     font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 999px;
-    border: 1px solid; color: var(--color-text-muted);
+    border: 1px solid; color: var(--color-text-muted); flex-shrink: 0; white-space: nowrap;
 }
 .tx-date { font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; }
 .tx-link { font-size: 0.75rem; color: var(--color-accent); white-space: nowrap; }
@@ -608,4 +608,24 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 }
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
+
+@media (max-width: 600px) {
+    .summary-cards { grid-template-columns: 1fr; }
+    .summary-value { font-size: 1.2rem; }
+    .tab-header { flex-direction: column; align-items: stretch; }
+    .tab-header :deep(.syvora-btn) { width: 100%; }
+    .period-bar { flex-wrap: wrap; }
+    .cat-row { flex-wrap: wrap; }
+    .new-cat-inline { grid-template-columns: 1fr; }
+
+    .chart-box { padding: 0.875rem; overflow: hidden; }
+    .chart-wrapper { height: 200px; }
+
+    .tx-row { gap: 0.5rem; padding: 0.625rem 0.75rem; }
+    .tx-desc { min-width: 0; white-space: normal; overflow: visible; text-overflow: unset; flex-basis: 100%; }
+    .tx-cat { flex-basis: auto; }
+    .tx-link { white-space: normal; flex-basis: 100%; }
+    .tx-amount { margin-left: 0; }
+    .tx-actions { flex-basis: 100%; }
+}
 </style>
