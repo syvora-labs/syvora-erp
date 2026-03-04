@@ -590,7 +590,7 @@ function formatAuditDate(d: string) {
     transition: box-shadow 0.3s, border-color 0.3s; display: flex; flex-direction: column;
 }
 .release-card:hover { box-shadow: var(--shadow-card-hover); }
-.release-card.is-active { border-color: rgba(22, 163, 74, 0.4); }
+.release-card.is-active { border-color: rgba(115, 195, 254, 0.4); }
 
 /* ── Artwork ──────────────────────────────────────────────────────────────── */
 .release-artwork {
@@ -602,7 +602,7 @@ function formatAuditDate(d: string) {
 .release-artwork.clickable:hover img { transform: scale(1.04); }
 .release-artwork-placeholder {
     width: 100%; height: 100%;
-    background: linear-gradient(135deg, rgba(22,163,74,0.08), rgba(22,163,74,0.18));
+    background: linear-gradient(135deg, rgba(115,195,254,0.08), rgba(115,195,254,0.18));
     display: flex; align-items: center; justify-content: center; font-size: 3rem; color: var(--color-accent);
 }
 
@@ -629,15 +629,15 @@ function formatAuditDate(d: string) {
     position: absolute; top: 8px; right: 8px;
     width: 10px; height: 10px; border-radius: 50%;
     background: var(--color-accent);
-    box-shadow: 0 0 0 0 rgba(22,163,74,0.4);
+    box-shadow: 0 0 0 0 rgba(115,195,254,0.4);
 }
 .now-playing-dot.pulsing {
     animation: pulse-ring 1.8s ease-out infinite;
 }
 @keyframes pulse-ring {
-    0%   { box-shadow: 0 0 0 0   rgba(22,163,74,0.5); }
-    70%  { box-shadow: 0 0 0 8px rgba(22,163,74,0); }
-    100% { box-shadow: 0 0 0 0   rgba(22,163,74,0); }
+    0%   { box-shadow: 0 0 0 0   rgba(115,195,254,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(115,195,254,0); }
+    100% { box-shadow: 0 0 0 0   rgba(115,195,254,0); }
 }
 
 /* ── Info ─────────────────────────────────────────────────────────────────── */
@@ -683,8 +683,8 @@ function formatAuditDate(d: string) {
     border-radius: 0.375rem;
 }
 .inline-track:hover { background: rgba(255,255,255,0.6); }
-.inline-track.track-active { background: rgba(22,163,74,0.08); }
-.inline-track.track-playing { background: rgba(22,163,74,0.12); }
+.inline-track.track-active { background: rgba(115,195,254,0.08); }
+.inline-track.track-playing { background: rgba(115,195,254,0.12); }
 
 .inline-play-btn {
     width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
@@ -695,7 +695,7 @@ function formatAuditDate(d: string) {
     padding: 0;
 }
 .inline-play-btn.has-audio { border-color: rgba(0,0,0,0.15); }
-.inline-play-btn.has-audio:hover { color: var(--color-accent); border-color: var(--color-accent); background: rgba(22,163,74,0.08); }
+.inline-play-btn.has-audio:hover { color: var(--color-accent); border-color: var(--color-accent); background: rgba(115,195,254,0.08); }
 .inline-track.track-active .inline-play-btn { color: var(--color-accent); border-color: var(--color-accent); }
 .inline-play-btn:disabled { cursor: default; opacity: 0.4; }
 .no-audio-dash { font-size: 0.75rem; }
@@ -728,7 +728,7 @@ function formatAuditDate(d: string) {
 }
 .player-thumb {
     width: 44px; height: 44px; border-radius: 0.375rem; flex-shrink: 0;
-    overflow: hidden; background: rgba(22,163,74,0.12);
+    overflow: hidden; background: rgba(115,195,254,0.12);
     display: flex; align-items: center; justify-content: center;
 }
 .player-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -763,7 +763,7 @@ function formatAuditDate(d: string) {
     width: 36px; height: 36px;
     background: var(--color-accent); color: #fff !important;
     font-size: 0.875rem; border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(22,163,74,0.35);
+    box-shadow: 0 2px 8px rgba(115,195,254,0.35);
 }
 .ctrl-play:hover { background: color-mix(in srgb, var(--color-accent) 85%, black) !important; }
 
@@ -782,7 +782,7 @@ function formatAuditDate(d: string) {
     -webkit-appearance: none;
     width: 12px; height: 12px; border-radius: 50%;
     background: var(--color-accent); cursor: pointer;
-    box-shadow: 0 1px 4px rgba(22,163,74,0.4);
+    box-shadow: 0 1px 4px rgba(115,195,254,0.4);
     transition: transform 0.1s;
 }
 .progress-range:hover::-webkit-slider-thumb { transform: scale(1.25); }
@@ -813,7 +813,7 @@ function formatAuditDate(d: string) {
 .artwork-preview {
     width: 140px; height: 140px; border-radius: 1rem; overflow: hidden;
     cursor: pointer; position: relative;
-    background: rgba(22,163,74,0.08); border: 1.5px dashed rgba(22,163,74,0.3);
+    background: rgba(115,195,254,0.08); border: 1.5px dashed rgba(115,195,254,0.3);
     display: flex; align-items: center; justify-content: center;
 }
 .artwork-preview img { width: 100%; height: 100%; object-fit: cover; }
@@ -832,7 +832,7 @@ function formatAuditDate(d: string) {
     background: rgba(255,255,255,0.58); border: 1px solid rgba(255,255,255,0.52);
     border-radius: var(--radius-sm); color: var(--color-text); font-size: 1rem; cursor: pointer;
 }
-.native-select:focus { outline: none; border-color: rgba(22,163,74,0.4); box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
+.native-select:focus { outline: none; border-color: rgba(115,195,254,0.4); box-shadow: 0 0 0 3px rgba(115,195,254,0.1); }
 .hidden-input { display: none; }
 .save-hint { font-size: 0.8125rem; color: var(--color-text-muted); text-align: center; margin: 0; }
 

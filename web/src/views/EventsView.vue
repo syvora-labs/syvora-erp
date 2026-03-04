@@ -418,7 +418,7 @@ function formatAuditDate(d: string) {
 .event-artwork img { width: 100%; height: 100%; object-fit: cover; }
 .event-artwork-placeholder {
     width: 100%; min-height: 140px; height: 100%;
-    background: linear-gradient(135deg, rgba(22,163,74,0.08), rgba(22,163,74,0.18));
+    background: linear-gradient(135deg, rgba(115,195,254,0.08), rgba(115,195,254,0.18));
     display: flex; align-items: center; justify-content: center;
     font-size: 2.5rem; color: var(--color-accent);
 }
@@ -453,13 +453,13 @@ function formatAuditDate(d: string) {
 /* Status badges */
 .badge-draft {
     background: rgba(100, 100, 100, 0.12);
-    color: rgba(10, 26, 18, 0.55);
+    color: rgba(12, 26, 39, 0.55);
     border: 1px solid rgba(100, 100, 100, 0.2);
 }
 .badge-published {
-    background: rgba(22, 163, 74, 0.1);
+    background: rgba(115, 195, 254, 0.1);
     color: var(--color-accent);
-    border: 1px solid rgba(22, 163, 74, 0.22);
+    border: 1px solid rgba(115, 195, 254, 0.22);
 }
 .badge-archived {
     background: rgba(120, 80, 0, 0.09);
@@ -473,7 +473,7 @@ function formatAuditDate(d: string) {
 .artwork-preview {
     width: 140px; height: 140px; border-radius: 1rem; overflow: hidden;
     cursor: pointer; position: relative;
-    background: rgba(22,163,74,0.08); border: 1.5px dashed rgba(22,163,74,0.3);
+    background: rgba(115,195,254,0.08); border: 1.5px dashed rgba(115,195,254,0.3);
     display: flex; align-items: center; justify-content: center;
 }
 .artwork-preview img { width: 100%; height: 100%; object-fit: cover; }
@@ -493,9 +493,9 @@ function formatAuditDate(d: string) {
     display: flex; align-items: center; gap: 0.5rem;
     font-size: 0.8125rem; color: var(--color-text-muted);
     padding: 0.5rem 0.75rem;
-    background: rgba(22,163,74,0.06);
+    background: rgba(115,195,254,0.06);
     border-radius: var(--radius-sm);
-    border: 1px solid rgba(22,163,74,0.15);
+    border: 1px solid rgba(115,195,254,0.15);
 }
 
 :deep(.btn-danger) { color: var(--color-error); }

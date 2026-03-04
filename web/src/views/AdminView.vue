@@ -358,8 +358,8 @@ function formatDate(d: string) {
 
 .native-select:focus {
     outline: none;
-    border-color: rgba(22, 163, 74, 0.4);
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+    border-color: rgba(115, 195, 254, 0.4);
+    box-shadow: 0 0 0 3px rgba(115, 195, 254, 0.1);
 }
 
 .create-hint {

@@ -111,7 +111,7 @@
 
 :slotted(.nav-link--active) {
     color: var(--color-accent);
-    background: rgba(22, 163, 74, 0.08);
+    background: rgba(115, 195, 254, 0.12);
     font-weight: 600;
 }
 

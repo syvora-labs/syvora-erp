@@ -73,7 +73,7 @@ const emit = defineEmits<{
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 600;
-    background: rgba(22, 163, 74, 0.1);
+    background: rgba(115, 195, 254, 0.12);
     color: var(--color-accent);
 }
 </style>
