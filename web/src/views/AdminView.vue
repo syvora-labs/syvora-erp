@@ -180,19 +180,21 @@ function formatDate(d: string) {
                             </span>
                             <span class="user-email">{{ user.email }}</span>
                         </div>
-                        <div class="user-meta">
-                            <span class="badge" :class="user.profile?.role === 'admin' ? 'badge-success' : 'badge-deposit'">
-                                {{ user.profile?.role ?? 'no profile' }}
-                            </span>
-                            <span class="user-joined">Joined {{ formatDate(user.created_at) }}</span>
-                        </div>
-                        <div class="user-actions">
-                            <SyvoraButton variant="ghost" size="sm" @click="toggleRole(user)" :disabled="!user.profile">
-                                Make {{ user.profile?.role === 'admin' ? 'member' : 'admin' }}
-                            </SyvoraButton>
-                            <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="deleteUser(user.id, user.profile?.username ?? user.email)">
-                                Delete
-                            </SyvoraButton>
+                        <div class="user-row-end">
+                            <div class="user-meta">
+                                <span class="badge" :class="user.profile?.role === 'admin' ? 'badge-success' : 'badge-deposit'">
+                                    {{ user.profile?.role ?? 'no profile' }}
+                                </span>
+                                <span class="user-joined">Joined {{ formatDate(user.created_at) }}</span>
+                            </div>
+                            <div class="user-actions">
+                                <SyvoraButton variant="ghost" size="sm" @click="toggleRole(user)" :disabled="!user.profile">
+                                    Make {{ user.profile?.role === 'admin' ? 'member' : 'admin' }}
+                                </SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="deleteUser(user.id, user.profile?.username ?? user.email)">
+                                    Delete
+                                </SyvoraButton>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -324,6 +326,13 @@ function formatDate(d: string) {
     color: var(--color-text-muted);
 }
 
+.user-row-end {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
 .user-actions {
     display: flex;
     gap: 0.375rem;
@@ -367,12 +376,14 @@ function formatDate(d: string) {
     .user-row {
         flex-wrap: wrap;
     }
+
+    .user-row-end {
+        width: 100%;
+        justify-content: space-between;
+    }
+
     .user-meta {
         align-items: flex-start;
-    }
-    .user-actions {
-        width: 100%;
-        justify-content: flex-end;
     }
 }
 </style>
