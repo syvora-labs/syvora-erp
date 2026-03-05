@@ -6,12 +6,14 @@ export interface Artist {
     name: string
     picture_url: string | null
     is_managed: boolean
+    managed_by: string | null
     created_by: string | null
     updated_by: string | null
     created_at: string
     updated_at: string
     creator_name: string | null
     updater_name: string | null
+    manager_name: string | null
 }
 
 export interface ArtistShow {
@@ -67,11 +69,11 @@ export interface ArtistNote {
 const artists = ref<Artist[]>([])
 const loading = ref(false)
 
-async function enrichWithNames<T extends { created_by: string | null; updated_by: string | null }>(
+async function enrichWithNames<T extends { created_by: string | null; updated_by: string | null; managed_by?: string | null }>(
     rows: T[]
-): Promise<(T & { creator_name: string | null; updater_name: string | null })[]> {
+): Promise<(T & { creator_name: string | null; updater_name: string | null; manager_name?: string | null })[]> {
     const userIds = [...new Set(
-        rows.flatMap(r => [r.created_by, r.updated_by]).filter((id): id is string => !!id)
+        rows.flatMap(r => [r.created_by, r.updated_by, ...(('managed_by' in r && r.managed_by) ? [r.managed_by] : [])]).filter((id): id is string => !!id)
     )]
     let profileMap: Record<string, string | null> = {}
     if (userIds.length) {
@@ -85,6 +87,7 @@ async function enrichWithNames<T extends { created_by: string | null; updated_by
         ...r,
         creator_name: r.created_by ? (profileMap[r.created_by] ?? null) : null,
         updater_name: r.updated_by ? (profileMap[r.updated_by] ?? null) : null,
+        ...('managed_by' in r ? { manager_name: r.managed_by ? (profileMap[r.managed_by] ?? null) : null } : {}),
     }))
 }
 
@@ -103,7 +106,7 @@ export function useArtists() {
         loading.value = false
     }
 
-    async function createArtist(payload: { name: string; is_managed?: boolean }): Promise<Artist> {
+    async function createArtist(payload: { name: string; is_managed?: boolean; managed_by?: string | null }): Promise<Artist> {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('artists')
@@ -115,7 +118,7 @@ export function useArtists() {
         return data as Artist
     }
 
-    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null; is_managed?: boolean }) {
+    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null; is_managed?: boolean; managed_by?: string | null }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('artists')

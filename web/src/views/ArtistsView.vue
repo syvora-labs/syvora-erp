@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArtists, type Artist } from '../composables/useArtists'
+import { supabase } from '../lib/supabase'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraEmptyState, SyvoraTabs,
@@ -18,16 +19,22 @@ const editingArtist = ref<Artist | null>(null)
 const saving = ref(false)
 const error = ref('')
 
-const form = ref({ name: '', is_managed: false })
+const form = ref({ name: '', is_managed: false, managed_by: '' })
 const pictureFile = ref<File | null>(null)
 const picturePreview = ref<string | null>(null)
 const pictureInput = ref<HTMLInputElement | null>(null)
 
-onMounted(fetchArtists)
+const profiles = ref<{ id: string; display_name: string | null; username: string | null }[]>([])
+
+onMounted(async () => {
+    fetchArtists()
+    const { data } = await supabase.from('profiles').select('id, display_name, username').order('display_name')
+    profiles.value = data ?? []
+})
 
 function openCreate() {
     editingArtist.value = null
-    form.value = { name: '', is_managed: false }
+    form.value = { name: '', is_managed: false, managed_by: '' }
     pictureFile.value = null
     picturePreview.value = null
     error.value = ''
@@ -36,7 +43,7 @@ function openCreate() {
 
 function openEdit(artist: Artist) {
     editingArtist.value = artist
-    form.value = { name: artist.name, is_managed: artist.is_managed }
+    form.value = { name: artist.name, is_managed: artist.is_managed, managed_by: artist.managed_by ?? '' }
     pictureFile.value = null
     picturePreview.value = artist.picture_url ?? null
     error.value = ''
@@ -68,9 +75,9 @@ async function saveArtist() {
             if (pictureFile.value) {
                 picture_url = await uploadArtistPicture(pictureFile.value, editingArtist.value.id)
             }
-            await updateArtist(editingArtist.value.id, { name: form.value.name.trim(), picture_url, is_managed: form.value.is_managed })
+            await updateArtist(editingArtist.value.id, { name: form.value.name.trim(), picture_url, is_managed: form.value.is_managed, managed_by: form.value.is_managed && form.value.managed_by ? form.value.managed_by : null })
         } else {
-            const newArtist = await createArtist({ name: form.value.name.trim(), is_managed: form.value.is_managed })
+            const newArtist = await createArtist({ name: form.value.name.trim(), is_managed: form.value.is_managed, managed_by: form.value.is_managed && form.value.managed_by ? form.value.managed_by : null })
             if (pictureFile.value) {
                 const picture_url = await uploadArtistPicture(pictureFile.value, newArtist.id)
                 await updateArtist(newArtist.id, { picture_url })
@@ -140,6 +147,7 @@ function formatDate(iso: string) {
                 <div class="artist-body">
                     <h3 class="artist-name">{{ artist.name }}</h3>
                     <p class="artist-meta">Added {{ formatDate(artist.created_at) }}</p>
+                    <p v-if="artist.manager_name" class="artist-meta">Managed by {{ artist.manager_name }}</p>
                     <div class="artist-actions" @click.stop>
                         <SyvoraButton variant="ghost" size="sm" @click="openEdit(artist)">Edit</SyvoraButton>
                         <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(artist)">Delete</SyvoraButton>
@@ -168,9 +176,16 @@ function formatDate(iso: string) {
             </SyvoraFormField>
 
             <label class="checkbox-field">
-                <input type="checkbox" v-model="form.is_managed" />
+                <input type="checkbox" v-model="form.is_managed" @change="() => { if (!form.is_managed) form.managed_by = '' }" />
                 <span>Managed by EB</span>
             </label>
+
+            <SyvoraFormField v-if="form.is_managed" label="Managed by" for="managed-by">
+                <select id="managed-by" v-model="form.managed_by" class="managed-select">
+                    <option value="">— Select manager —</option>
+                    <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.display_name || p.username || p.id }}</option>
+                </select>
+            </SyvoraFormField>
 
             <p v-if="error" class="error-msg">{{ error }}</p>
         </div>
@@ -376,6 +391,22 @@ function formatDate(iso: string) {
     height: 1rem;
     accent-color: var(--color-accent);
     cursor: pointer;
+}
+
+.managed-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.managed-select:focus {
+    border-color: var(--color-accent);
 }
 
 :deep(.btn-danger) {

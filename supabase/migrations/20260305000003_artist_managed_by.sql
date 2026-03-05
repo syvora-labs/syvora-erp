@@ -1,0 +1,1 @@
+ALTER TABLE artists ADD COLUMN managed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;

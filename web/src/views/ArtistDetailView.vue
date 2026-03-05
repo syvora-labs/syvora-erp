@@ -353,6 +353,7 @@ function formatDateTime(iso: string) {
                         <h1 class="artist-name">{{ artist.name }}</h1>
                         <span v-if="artist.is_managed" class="managed-badge">Managed by EB</span>
                     </div>
+                    <p v-if="artist.manager_name" class="artist-manager">Managed by {{ artist.manager_name }}</p>
                     <p class="artist-since">Artist since {{ formatDate(artist.created_at) }}</p>
                 </div>
             </div>
@@ -713,6 +714,13 @@ function formatDateTime(iso: string) {
     background: var(--color-accent);
     color: var(--color-text-on-accent, #fff);
     white-space: nowrap;
+}
+
+.artist-manager {
+    margin: 0;
+    color: var(--color-accent);
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .artist-since {
