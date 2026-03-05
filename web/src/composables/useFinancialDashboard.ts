@@ -7,7 +7,8 @@ export function useFinancialDashboard(transactions: Ref<FinancialTransaction[]>)
     const period = ref<DashboardPeriod>('year')
 
     const filteredTransactions = computed(() => {
-        if (period.value === 'all') return transactions.value
+        const confirmed = transactions.value.filter(t => !t.is_pending)
+        if (period.value === 'all') return confirmed
         const now = new Date()
         let cutoff: Date
         if (period.value === 'month') {
@@ -18,7 +19,7 @@ export function useFinancialDashboard(transactions: Ref<FinancialTransaction[]>)
         } else {
             cutoff = new Date(now.getFullYear(), 0, 1)
         }
-        return transactions.value.filter(t => new Date(t.transaction_date) >= cutoff)
+        return confirmed.filter(t => new Date(t.transaction_date) >= cutoff)
     })
 
     const totalIncome = computed(() =>

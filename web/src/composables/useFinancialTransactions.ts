@@ -10,6 +10,7 @@ export interface FinancialTransaction {
     event_id: string | null
     release_id: string | null
     transaction_date: string
+    is_pending: boolean
     created_by: string | null
     updated_by: string | null
     created_at: string
@@ -58,6 +59,7 @@ export function useFinancialTransactions() {
             event_id: r.event_id,
             release_id: r.release_id,
             transaction_date: r.transaction_date,
+            is_pending: r.is_pending ?? false,
             created_by: r.created_by,
             updated_by: r.updated_by,
             created_at: r.created_at,
@@ -80,6 +82,7 @@ export function useFinancialTransactions() {
         event_id?: string | null
         release_id?: string | null
         transaction_date: string
+        is_pending?: boolean
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
@@ -106,6 +109,7 @@ export function useFinancialTransactions() {
         event_id?: string | null
         release_id?: string | null
         transaction_date?: string
+        is_pending?: boolean
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase

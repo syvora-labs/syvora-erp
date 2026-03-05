@@ -1,0 +1,1 @@
+ALTER TABLE financial_transactions ADD COLUMN is_pending BOOLEAN NOT NULL DEFAULT FALSE;

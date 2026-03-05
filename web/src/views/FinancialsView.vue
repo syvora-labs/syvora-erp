@@ -50,7 +50,7 @@ const showTxModal = ref(false)
 const editingTx = ref<FinancialTransaction | null>(null)
 const savingTx = ref(false)
 const txError = ref('')
-const txFilter = ref<'all' | 'income' | 'expense'>('all')
+const txFilter = ref<'all' | 'income' | 'expense' | 'pending'>('all')
 
 const txForm = ref({
     type: 'expense' as string,
@@ -60,6 +60,7 @@ const txForm = ref({
     transaction_date: '',
     event_id: '',
     release_id: '',
+    is_pending: false,
 })
 
 const newCatName = ref('')
@@ -68,6 +69,7 @@ const isNewCategory = computed(() => txForm.value.category_id === '__new__')
 
 const filteredTx = computed(() => {
     if (txFilter.value === 'all') return transactions.value
+    if (txFilter.value === 'pending') return transactions.value.filter(t => t.is_pending)
     return transactions.value.filter(t => t.type === txFilter.value)
 })
 
@@ -78,7 +80,7 @@ const categoriesForType = computed(() => {
 
 function openCreateTx() {
     editingTx.value = null
-    txForm.value = { type: 'expense', amount: '', description: '', category_id: '', transaction_date: '', event_id: '', release_id: '' }
+    txForm.value = { type: 'expense', amount: '', description: '', category_id: '', transaction_date: '', event_id: '', release_id: '', is_pending: false }
     newCatName.value = ''
     newCatColor.value = '#73c3fe'
     txError.value = ''
@@ -95,6 +97,7 @@ function openEditTx(tx: FinancialTransaction) {
         transaction_date: tx.transaction_date,
         event_id: tx.event_id ?? '',
         release_id: tx.release_id ?? '',
+        is_pending: tx.is_pending,
     }
     newCatName.value = ''
     newCatColor.value = '#73c3fe'
@@ -129,6 +132,7 @@ async function saveTx() {
             event_id: txForm.value.event_id || null,
             release_id: txForm.value.release_id || null,
             transaction_date: txForm.value.transaction_date,
+            is_pending: txForm.value.is_pending,
         }
         if (editingTx.value) {
             await updateTransaction(editingTx.value.id, payload)
@@ -318,6 +322,7 @@ const periods: { key: DashboardPeriod; label: string }[] = [
                     <button class="filter-btn" :class="{ 'filter-btn--active': txFilter === 'all' }" @click="txFilter = 'all'">All</button>
                     <button class="filter-btn" :class="{ 'filter-btn--active': txFilter === 'income' }" @click="txFilter = 'income'">Income</button>
                     <button class="filter-btn" :class="{ 'filter-btn--active': txFilter === 'expense' }" @click="txFilter = 'expense'">Expenses</button>
+                    <button class="filter-btn" :class="{ 'filter-btn--active': txFilter === 'pending' }" @click="txFilter = 'pending'">Pending</button>
                 </div>
                 <SyvoraButton @click="openCreateTx">+ New Transaction</SyvoraButton>
             </div>
@@ -325,8 +330,9 @@ const periods: { key: DashboardPeriod; label: string }[] = [
             <div v-if="txLoading" class="loading-text">Loading…</div>
             <SyvoraEmptyState v-else-if="filteredTx.length === 0" title="No transactions" description="Add your first transaction to start tracking." />
             <div v-else class="tx-list">
-                <div v-for="tx in filteredTx" :key="tx.id" class="tx-row tx-row--interactive">
+                <div v-for="tx in filteredTx" :key="tx.id" class="tx-row tx-row--interactive" :class="{ 'tx-row--pending': tx.is_pending }">
                     <span class="tx-type-badge" :class="'tx-type--' + tx.type">{{ tx.type }}</span>
+                    <span v-if="tx.is_pending" class="tx-pending-badge">pending</span>
                     <span class="tx-desc">{{ tx.description }}</span>
                     <span v-if="tx.category_name" class="tx-cat" :style="{ borderColor: tx.category_color ?? undefined }">{{ tx.category_name }}</span>
                     <span class="tx-date">{{ formatDate(tx.transaction_date) }}</span>
@@ -403,6 +409,12 @@ const periods: { key: DashboardPeriod; label: string }[] = [
             <SyvoraFormField label="Date" for="tx-date">
                 <SyvoraInput id="tx-date" v-model="txForm.transaction_date" type="date" />
             </SyvoraFormField>
+
+            <label class="checkbox-field">
+                <input type="checkbox" v-model="txForm.is_pending" />
+                <span>Pending</span>
+                <span class="checkbox-hint">Pending transactions are excluded from dashboard charts</span>
+            </label>
 
             <SyvoraFormField label="Linked Event" for="tx-event">
                 <select id="tx-event" v-model="txForm.event_id" class="native-select">
@@ -539,6 +551,12 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 .tx-amount--income { color: #22c55e; }
 .tx-amount--expense { color: #ef4444; }
 .tx-actions { display: flex; gap: 0.25rem; }
+.tx-row--pending { opacity: 0.6; }
+.tx-pending-badge {
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
+    padding: 0.15rem 0.5rem; border-radius: 0.375rem;
+    background: rgba(250,204,21,0.15); color: #eab308;
+}
 
 /* Tab header */
 .tab-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
@@ -605,6 +623,17 @@ const periods: { key: DashboardPeriod; label: string }[] = [
     padding: 0.75rem; border-radius: 0.5rem;
     background: var(--color-surface-raised, rgba(255,255,255,0.04));
     border: 1px dashed var(--color-border);
+}
+
+.checkbox-field {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.9rem; color: var(--color-text); cursor: pointer; flex-wrap: wrap;
+}
+.checkbox-field input[type="checkbox"] {
+    width: 1rem; height: 1rem; accent-color: var(--color-accent); cursor: pointer;
+}
+.checkbox-hint {
+    flex-basis: 100%; font-size: 0.75rem; color: var(--color-text-muted); margin-left: 1.5rem;
 }
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
