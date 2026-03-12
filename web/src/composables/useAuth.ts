@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { useMandator } from './useMandator'
 
 export interface Profile {
     id: string
@@ -9,12 +10,14 @@ export interface Profile {
     bio: string | null
     avatar_url: string | null
     role: 'admin' | 'member'
+    mandator_id: string | null
     created_at: string
     updated_at: string
 }
 
 const currentUser = ref<User | null>(null)
 const currentProfile = ref<Profile | null>(null)
+const { loadMandator, clearMandator } = useMandator()
 
 async function fetchProfile(userId: string) {
     const { data } = await supabase
@@ -23,6 +26,7 @@ async function fetchProfile(userId: string) {
         .eq('id', userId)
         .maybeSingle()
     currentProfile.value = data as Profile | null
+    await loadMandator(currentProfile.value?.mandator_id)
 }
 
 supabase.auth.getSession().then(({ data }) => {
@@ -36,6 +40,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
         fetchProfile(currentUser.value.id)
     } else {
         currentProfile.value = null
+        clearMandator()
     }
 })
 
