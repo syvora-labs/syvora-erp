@@ -1,4 +1,4 @@
-import { ref, computed, readonly } from 'vue'
+import { ref, computed, readonly, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 
 export interface Mandator {
@@ -46,6 +46,7 @@ const DEFAULT_FORM: MandatorFormData = {
 // ── Current user's mandator (singleton state) ───────────────────────────────
 const mandator = ref<Mandator | null>(null)
 const loading = ref(false)
+const ready = ref(false)
 
 const artistsEnabled = computed(() => mandator.value?.module_artists ?? true)
 const releasesEnabled = computed(() => mandator.value?.module_releases ?? true)
@@ -65,6 +66,7 @@ function isModuleEnabled(route: string): boolean {
 async function loadMandator(mandatorId: string | null | undefined) {
     if (!mandatorId) {
         mandator.value = null
+        ready.value = true
         return
     }
     loading.value = true
@@ -78,7 +80,17 @@ async function loadMandator(mandatorId: string | null | undefined) {
         mandator.value = data as Mandator | null
     } finally {
         loading.value = false
+        ready.value = true
     }
+}
+
+function waitUntilReady(): Promise<void> {
+    if (ready.value) return Promise.resolve()
+    return new Promise((resolve) => {
+        const stop = watch(ready, (val) => {
+            if (val) { stop(); resolve() }
+        })
+    })
 }
 
 async function refreshMandator() {
@@ -89,6 +101,7 @@ async function refreshMandator() {
 
 function clearMandator() {
     mandator.value = null
+    ready.value = false
 }
 
 // ── Mandator CRUD (all-mandators list) ──────────────────────────────────────
@@ -166,6 +179,7 @@ export function useMandator() {
         loadMandator,
         refreshMandator,
         clearMandator,
+        waitUntilReady,
         mandators: readonly(mandators),
         fetchMandators,
         createMandator,
