@@ -34,30 +34,20 @@ async function handleLogin() {
     <div class="login-wrap">
         <div class="login-header">
             <span class="login-logo">◆</span>
-            <h1 class="login-title">Syvora Label</h1>
-            <p class="login-subtitle">Sign in to manage your label</p>
+            <h1 class="login-title">SYVORA</h1>
+            <p class="login-subtitle">Sign in to access the ERP-System</p>
         </div>
 
         <SyvoraCard>
             <form class="login-form" @submit.prevent="handleLogin">
                 <SyvoraFormField label="Email" for="email">
-                    <SyvoraInput
-                        id="email"
-                        v-model="email"
-                        type="email"
-                        placeholder="you@label.com"
-                        autocomplete="email"
-                    />
+                    <SyvoraInput id="email" v-model="email" type="email" placeholder="you@label.com"
+                        autocomplete="email" />
                 </SyvoraFormField>
 
                 <SyvoraFormField label="Password" for="password">
-                    <SyvoraInput
-                        id="password"
-                        v-model="password"
-                        type="password"
-                        placeholder="••••••••"
-                        autocomplete="current-password"
-                    />
+                    <SyvoraInput id="password" v-model="password" type="password" placeholder="••••••••"
+                        autocomplete="current-password" />
                 </SyvoraFormField>
 
                 <p v-if="error" class="error-msg">{{ error }}</p>
