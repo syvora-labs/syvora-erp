@@ -5,7 +5,7 @@ import { useMandator } from './composables/useMandator'
 import { AppShell, SyvoraButton, SyvoraAvatar } from '@syvora/ui'
 
 const { currentProfile, isAuthenticated, isAdmin, signOut } = useAuth()
-const { releasesEnabled, eventsEnabled, radiosEnabled, artistsEnabled, financialsEnabled } = useMandator()
+const { releasesEnabled, eventsEnabled, radiosEnabled, artistsEnabled, financialsEnabled, associationsEnabled } = useMandator()
 const router = useRouter()
 
 async function handleSignOut() {
@@ -32,6 +32,8 @@ async function handleSignOut() {
             </RouterLink>
             <RouterLink v-if="financialsEnabled" to="/financials" class="nav-link" active-class="nav-link--active">
                 Financials</RouterLink>
+            <RouterLink v-if="associationsEnabled" to="/associations" class="nav-link" active-class="nav-link--active">
+                Associations</RouterLink>
             <RouterLink v-if="isAdmin" to="/admin" class="nav-link" active-class="nav-link--active">Administration</RouterLink>
         </template>
 
