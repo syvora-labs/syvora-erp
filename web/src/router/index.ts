@@ -10,6 +10,7 @@ import ProfileView from "../views/ProfileView.vue";
 import AdminView from "../views/AdminView.vue";
 import FinancialsView from "../views/FinancialsView.vue";
 import RadiosView from "../views/RadiosView.vue";
+import AssociationsView from "../views/AssociationsView.vue";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -22,6 +23,7 @@ const router = createRouter({
         { path: "/artists", component: ArtistsView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/artists/:id", component: ArtistDetailView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/financials", component: FinancialsView, meta: { requiresAuth: true, module: "financials" } },
+        { path: "/associations", component: AssociationsView, meta: { requiresAuth: true, module: "associations" } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
     ],
