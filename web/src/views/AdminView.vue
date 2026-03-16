@@ -633,21 +633,51 @@ function formatDate(d: string) {
 }
 
 @media (max-width: 600px) {
-    .user-row {
+    .page-header {
         flex-wrap: wrap;
+    }
+
+    .page-title {
+        font-size: 1.375rem;
+    }
+
+    .user-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.625rem;
+        padding: 1rem 0;
     }
 
     .user-row-end {
         width: 100%;
-        justify-content: space-between;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.625rem;
     }
 
     .user-meta {
-        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .user-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .native-select-sm {
+        min-width: 0;
+        flex: 1;
     }
 
     .mandator-row {
         flex-wrap: wrap;
+    }
+
+    .mandator-actions {
+        width: 100%;
     }
 }
 </style>
