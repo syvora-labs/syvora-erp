@@ -10,14 +10,15 @@ export interface Mandator {
     module_radios: boolean
     module_financials: boolean
     module_associations: boolean
+    module_meetings: boolean
     created_by: string | null
     updated_by: string | null
     created_at: string
     updated_at: string
 }
 
-export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations'
-export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations'
+export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations' | 'module_meetings'
+export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations' | 'meetings'
 
 export interface ModuleDefinition {
     route: ModuleRoute
@@ -32,6 +33,7 @@ export const MODULES: ModuleDefinition[] = [
     { route: 'artists', column: 'module_artists', label: 'Artists' },
     { route: 'financials', column: 'module_financials', label: 'Financials' },
     { route: 'associations', column: 'module_associations', label: 'Associations' },
+    { route: 'meetings', column: 'module_meetings', label: 'Meetings' },
 ]
 
 export type MandatorFormData = Pick<Mandator, 'name' | ModuleKey>
@@ -44,6 +46,7 @@ const DEFAULT_FORM: MandatorFormData = {
     module_radios: true,
     module_financials: true,
     module_associations: true,
+    module_meetings: true,
 }
 
 // ── Current user's mandator (singleton state) ───────────────────────────────
@@ -57,6 +60,7 @@ const eventsEnabled = computed(() => mandator.value?.module_events ?? true)
 const radiosEnabled = computed(() => mandator.value?.module_radios ?? true)
 const financialsEnabled = computed(() => mandator.value?.module_financials ?? true)
 const associationsEnabled = computed(() => mandator.value?.module_associations ?? true)
+const meetingsEnabled = computed(() => mandator.value?.module_meetings ?? true)
 
 const enabledModules = computed(() =>
     MODULES.filter((m) => mandator.value?.[m.column] ?? true).map((m) => m.route)
@@ -160,6 +164,7 @@ function getDefaultForm(from?: Mandator): MandatorFormData {
             module_radios: from.module_radios,
             module_financials: from.module_financials,
             module_associations: from.module_associations,
+            module_meetings: from.module_meetings,
         }
     }
     return { ...DEFAULT_FORM }
@@ -180,6 +185,7 @@ export function useMandator() {
         radiosEnabled,
         financialsEnabled,
         associationsEnabled,
+        meetingsEnabled,
         enabledModules,
         isModuleEnabled,
         loadMandator,
