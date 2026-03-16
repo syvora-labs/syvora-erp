@@ -17,12 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: yarn
 
       - name: Install workspace dependencies
-        run: npm install --no-package-lock
+        run: yarn install --frozen-lockfile
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: yarn global add vercel@latest
 
       - name: Pull Vercel environment information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
