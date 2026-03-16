@@ -28,6 +28,10 @@ const isMobile = useIsMobile()
                     <slot name="nav" />
                 </div>
 
+                <div v-if="isMobile" class="shell-actions-mobile">
+                    <slot name="actions-mobile" />
+                </div>
+
                 <div v-show="!isMobile" class="shell-actions">
                     <slot name="actions" />
                 </div>
@@ -173,6 +177,11 @@ const isMobile = useIsMobile()
 }
 
 .shell-actions {
+    flex-shrink: 0;
+}
+
+.shell-actions-mobile {
+    margin-left: auto;
     flex-shrink: 0;
 }
 
