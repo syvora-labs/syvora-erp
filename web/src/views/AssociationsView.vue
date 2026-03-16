@@ -3,8 +3,10 @@ import { ref, onMounted } from 'vue'
 import { useAssociations, type AssociationMember } from '../composables/useAssociations'
 import {
     SyvoraCard, SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraEmptyState,
+    SyvoraInput, SyvoraEmptyState, useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 const { members, loading, fetchMembers, createMember, updateMember, deleteMember } = useAssociations()
 
@@ -83,7 +85,7 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Associations</h1>
@@ -289,18 +291,16 @@ function formatDate(iso: string) {
     color: var(--color-error, #f87171);
 }
 
-@media (max-width: 600px) {
-    .member-row {
-        flex-wrap: wrap;
-    }
+.mobile .member-row {
+    flex-wrap: wrap;
+}
 
-    .member-row-end {
-        width: 100%;
-        justify-content: space-between;
-    }
+.mobile .member-row-end {
+    width: 100%;
+    justify-content: space-between;
+}
 
-    .member-meta {
-        text-align: left;
-    }
+.mobile .member-meta {
+    text-align: left;
 }
 </style>

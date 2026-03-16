@@ -6,8 +6,11 @@ import { useMandator, MODULES } from '../composables/useMandator'
 import type { Mandator, MandatorFormData } from '../composables/useMandator'
 import {
     SyvoraCard, SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraEmptyState, SyvoraAvatar, SyvoraTabs
+    SyvoraInput, SyvoraEmptyState, SyvoraAvatar, SyvoraTabs,
+    useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 interface UserRow {
     id: string
@@ -239,7 +242,7 @@ function formatDate(d: string) {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Administration</h1>
@@ -632,22 +635,50 @@ function formatDate(d: string) {
     color: var(--color-error);
 }
 
-@media (max-width: 600px) {
-    .user-row {
-        flex-wrap: wrap;
-    }
+.mobile .page-header {
+    flex-wrap: wrap;
+}
 
-    .user-row-end {
-        width: 100%;
-        justify-content: space-between;
-    }
+.mobile .page-title {
+    font-size: 1.375rem;
+}
 
-    .user-meta {
-        align-items: flex-start;
-    }
+.mobile .user-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 1rem 0;
+}
 
-    .mandator-row {
-        flex-wrap: wrap;
-    }
+.mobile .user-row-end {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+}
+
+.mobile .user-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.mobile .user-actions {
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.mobile .native-select-sm {
+    min-width: 0;
+    flex: 1;
+}
+
+.mobile .mandator-row {
+    flex-wrap: wrap;
+}
+
+.mobile .mandator-actions {
+    width: 100%;
 }
 </style>

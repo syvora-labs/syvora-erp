@@ -5,8 +5,10 @@ import { useArtists, type Artist, type ArtistNote, type ArtistShow, type ArtistB
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
-    SyvoraTabs, SyvoraBadge,
+    SyvoraTabs, SyvoraBadge, useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 import type { TabItem } from '@syvora/ui'
 
 const route = useRoute()
@@ -335,7 +337,7 @@ function formatDateTime(iso: string) {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <button class="back-btn" @click="router.push('/artists')">← Artists</button>
 
         <div v-if="loadingArtist" class="loading-text">Loading…</div>
@@ -999,44 +1001,42 @@ function formatDateTime(iso: string) {
     color: var(--color-error, #f87171);
 }
 
-@media (max-width: 600px) {
-    .artist-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
+.mobile .artist-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
 
-    .artist-avatar {
-        width: 72px;
-        height: 72px;
-    }
+.mobile .artist-avatar {
+    width: 72px;
+    height: 72px;
+}
 
-    .artist-name {
-        font-size: 1.5rem;
-    }
+.mobile .artist-name {
+    font-size: 1.5rem;
+}
 
-    .artist-name-row {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
+.mobile .artist-name-row {
+    flex-wrap: wrap;
+    justify-content: center;
+}
 
-    .form-row {
-        grid-template-columns: 1fr;
-    }
+.mobile .form-row {
+    grid-template-columns: 1fr;
+}
 
-    .booking-main,
-    .show-main {
-        flex-direction: column;
-    }
+.mobile .booking-main,
+.mobile .show-main {
+    flex-direction: column;
+}
 
-    .booking-actions,
-    .show-actions {
-        align-self: flex-end;
-    }
+.mobile .booking-actions,
+.mobile .show-actions {
+    align-self: flex-end;
+}
 
-    .section-header {
-        flex-wrap: wrap;
-        gap: 0.75rem;
-    }
+.mobile .section-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 </style>

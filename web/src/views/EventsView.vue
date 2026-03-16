@@ -3,8 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraTabs
+    SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraTabs,
+    useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 const {
     activeEvents, archivedEvents, loading,
@@ -176,7 +179,7 @@ function formatAuditDate(d: string) {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Events</h1>
@@ -500,7 +503,5 @@ function formatAuditDate(d: string) {
 
 :deep(.btn-danger) { color: var(--color-error); }
 
-@media (max-width: 600px) {
-    .event-artwork { width: 100px; }
-}
+.mobile .event-artwork { width: 100px; }
 </style>

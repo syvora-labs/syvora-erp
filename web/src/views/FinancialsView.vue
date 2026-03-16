@@ -2,8 +2,11 @@
 import { ref, onMounted, computed } from 'vue'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraEmptyState, SyvoraTabs
+    SyvoraInput, SyvoraEmptyState, SyvoraTabs,
+    useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 import { Bar, Doughnut } from 'vue-chartjs'
 import {
     Chart as ChartJS,
@@ -244,7 +247,7 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Financials</h1>
@@ -511,7 +514,7 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 
 /* Charts */
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
-@media (max-width: 600px) { .charts-row { grid-template-columns: 1fr; } }
+.mobile .charts-row { grid-template-columns: 1fr; }
 .chart-box {
     background: var(--color-surface); border: 1px solid var(--color-border);
     border-radius: 1rem; padding: 1.25rem;
@@ -638,23 +641,21 @@ const periods: { key: DashboardPeriod; label: string }[] = [
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
 
-@media (max-width: 600px) {
-    .summary-cards { grid-template-columns: 1fr; }
-    .summary-value { font-size: 1.2rem; }
-    .tab-header { flex-direction: column; align-items: stretch; }
-    .tab-header :deep(.syvora-btn) { width: 100%; }
-    .period-bar { flex-wrap: wrap; }
-    .cat-row { flex-wrap: wrap; }
-    .new-cat-inline { grid-template-columns: 1fr; }
+.mobile .summary-cards { grid-template-columns: 1fr; }
+.mobile .summary-value { font-size: 1.2rem; }
+.mobile .tab-header { flex-direction: column; align-items: stretch; }
+.mobile .tab-header :deep(.syvora-btn) { width: 100%; }
+.mobile .period-bar { flex-wrap: wrap; }
+.mobile .cat-row { flex-wrap: wrap; }
+.mobile .new-cat-inline { grid-template-columns: 1fr; }
 
-    .chart-box { padding: 0.875rem; overflow: hidden; }
-    .chart-wrapper { height: 200px; }
+.mobile .chart-box { padding: 0.875rem; overflow: hidden; }
+.mobile .chart-wrapper { height: 200px; }
 
-    .tx-row { gap: 0.5rem; padding: 0.625rem 0.75rem; }
-    .tx-desc { min-width: 0; white-space: normal; overflow: visible; text-overflow: unset; flex-basis: 100%; }
-    .tx-cat { flex-basis: auto; }
-    .tx-link { white-space: normal; flex-basis: 100%; }
-    .tx-amount { margin-left: 0; }
-    .tx-actions { flex-basis: 100%; }
-}
+.mobile .tx-row { gap: 0.5rem; padding: 0.625rem 0.75rem; }
+.mobile .tx-desc { min-width: 0; white-space: normal; overflow: visible; text-overflow: unset; flex-basis: 100%; }
+.mobile .tx-cat { flex-basis: auto; }
+.mobile .tx-link { white-space: normal; flex-basis: 100%; }
+.mobile .tx-amount { margin-left: 0; }
+.mobile .tx-actions { flex-basis: 100%; }
 </style>

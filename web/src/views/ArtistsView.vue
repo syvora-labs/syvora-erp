@@ -6,7 +6,10 @@ import { supabase } from '../lib/supabase'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraEmptyState, SyvoraTabs,
+    useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 const router = useRouter()
 const { managedArtists, generalArtists, loading, fetchArtists, createArtist, updateArtist, deleteArtist, uploadArtistPicture } = useArtists()
@@ -110,7 +113,7 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ mobile: isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Artists</h1>
@@ -413,18 +416,16 @@ function formatDate(iso: string) {
     color: var(--color-error, #f87171);
 }
 
-@media (max-width: 600px) {
-    .page-header {
-        flex-wrap: wrap;
-    }
+.mobile .page-header {
+    flex-wrap: wrap;
+}
 
-    .page-header :deep(.syvora-btn) {
-        width: 100%;
-    }
+.mobile .page-header :deep(.syvora-btn) {
+    width: 100%;
+}
 
-    .artists-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 0.75rem;
-    }
+.mobile .artists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
 }
 </style>
