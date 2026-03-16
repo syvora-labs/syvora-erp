@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import SyvoraDrawer from './SyvoraDrawer.vue'
 
 export interface TabItem {
@@ -7,6 +7,8 @@ export interface TabItem {
     label: string
     count?: number
 }
+
+const MOBILE_BREAKPOINT = '(max-width: 600px)'
 
 const props = defineProps<{
     modelValue: string
@@ -18,6 +20,23 @@ const emit = defineEmits<{
 }>()
 
 const drawerOpen = ref(false)
+const isMobile = ref(false)
+
+let mql: MediaQueryList | null = null
+
+function onMediaChange(e: MediaQueryListEvent | MediaQueryList) {
+    isMobile.value = e.matches
+}
+
+onMounted(() => {
+    mql = window.matchMedia(MOBILE_BREAKPOINT)
+    onMediaChange(mql)
+    mql.addEventListener('change', onMediaChange)
+})
+
+onUnmounted(() => {
+    mql?.removeEventListener('change', onMediaChange)
+})
 
 const activeTabItem = computed(() =>
     props.tabs.find(t => t.key === props.modelValue) ?? props.tabs[0]
@@ -31,7 +50,7 @@ function selectTab(key: string) {
 
 <template>
     <!-- Desktop: horizontal tabs -->
-    <div class="syvora-tabs syvora-tabs--desktop">
+    <div v-show="!isMobile" class="syvora-tabs syvora-tabs--desktop">
         <button
             v-for="tab in props.tabs"
             :key="tab.key"
@@ -45,7 +64,7 @@ function selectTab(key: string) {
     </div>
 
     <!-- Mobile: trigger + drawer -->
-    <div class="syvora-tabs-mobile">
+    <div v-show="isMobile" class="syvora-tabs-mobile">
         <button class="syvora-tabs-trigger" @click="drawerOpen = true">
             <span class="trigger-label">{{ activeTabItem?.label }}</span>
             <span v-if="activeTabItem?.count !== undefined" class="syvora-tab-count">{{ activeTabItem.count }}</span>
@@ -119,7 +138,6 @@ function selectTab(key: string) {
 
 /* ── Mobile trigger + drawer ── */
 .syvora-tabs-mobile {
-    display: none;
     margin-bottom: 1.5rem;
 }
 
@@ -190,13 +208,4 @@ function selectTab(key: string) {
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-    .syvora-tabs--desktop {
-        display: none;
-    }
-
-    .syvora-tabs-mobile {
-        display: block;
-    }
-}
 </style>
