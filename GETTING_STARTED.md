@@ -19,11 +19,26 @@
 
 ### Run the migrations
 
-In your Supabase project, open the **SQL Editor** and run the migration files in order:
+In your Supabase project, open the **SQL Editor** and run the migration files **in order**:
 
 1. `supabase/migrations/20260302000000_record_label_schema.sql`
 2. `supabase/migrations/20260302000001_events_draft_tracks_public.sql`
 3. `supabase/migrations/20260302000002_profiles_insert_policy.sql`
+4. `supabase/migrations/20260304000000_events_archived.sql`
+5. `supabase/migrations/20260304000001_audit_updated_by.sql`
+6. `supabase/migrations/20260304000002_artists.sql`
+7. `supabase/migrations/20260304000003_artist_shows.sql`
+8. `supabase/migrations/20260305000000_financials.sql`
+9. `supabase/migrations/20260305000001_artists_is_managed.sql`
+10. `supabase/migrations/20260305000002_artist_bookings.sql`
+11. `supabase/migrations/20260305000003_artist_managed_by.sql`
+12. `supabase/migrations/20260305000004_transaction_pending.sql`
+13. `supabase/migrations/20260307000000_radios.sql`
+14. `supabase/migrations/20260307000001_radios_artists_array.sql`
+15. `supabase/migrations/20260307000002_radios_soundcloud_link.sql`
+16. `supabase/migrations/20260312000000_mandators.sql`
+17. `supabase/migrations/20260314000000_associations.sql`
+18. `supabase/migrations/20260316000000_meetings.sql`
 
 Each file can be pasted directly into the SQL Editor and executed.
 
@@ -86,7 +101,13 @@ The admin account now has access to the **Users** tab and can create additional 
 | Manage releases (albums, EPs, singles, compilations) | **Releases** tab |
 | Upload artwork and audio tracks | Release edit modal |
 | Create and publish events | **Events** tab |
+| Manage artist profiles, notes, and bookings | **Artists** tab |
+| Track income and expenses | **Financials** tab |
+| Manage radio shows and file attachments | **Radios** tab |
+| Manage association/club members | **Associations** tab |
+| Schedule meetings and assign tasks | **Meetings** tab |
 | Create team member accounts | **Users** tab (admin only) |
+| Enable/disable modules per organisation | **Admin → Mandator settings** |
 | Update your display name, bio, or avatar | **Profile** (avatar icon, top right) |
 | Change your password | **Profile → Change Password** |
 
@@ -97,8 +118,8 @@ The admin account now has access to the **Users** tab and can create additional 
 If you prefer to run outside Docker:
 
 ```bash
-npm install
-npm run dev -w web
+yarn install
+yarn workspace web dev
 ```
 
 The app will be available at [http://localhost:5173](http://localhost:5173).
