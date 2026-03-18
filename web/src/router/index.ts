@@ -13,6 +13,7 @@ import RadiosView from "../views/RadiosView.vue";
 import AssociationsView from "../views/AssociationsView.vue";
 import AssociationMemberDetailView from "../views/AssociationMemberDetailView.vue";
 import MeetingsView from "../views/MeetingsView.vue";
+import RoadmapView from "../views/RoadmapView.vue";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,6 +29,7 @@ const router = createRouter({
         { path: "/associations", component: AssociationsView, meta: { requiresAuth: true, module: "associations" } },
         { path: "/associations/:id", component: AssociationMemberDetailView, meta: { requiresAuth: true, module: "associations" } },
         { path: "/meetings", component: MeetingsView, meta: { requiresAuth: true, module: "meetings" } },
+        { path: "/roadmap", component: RoadmapView, meta: { requiresAuth: true, module: "roadmap" } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
     ],
