@@ -28,6 +28,7 @@ export interface MeetingMember {
 export interface MeetingNote {
     id: string
     meeting_id: string
+    title: string
     content: string
     created_by: string | null
     created_at: string
@@ -176,18 +177,18 @@ export function useMeetings() {
         return enriched as MeetingNote[]
     }
 
-    async function createNote(meetingId: string, content: string) {
+    async function createNote(meetingId: string, payload: { title: string; content: string }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('meeting_notes')
-            .insert({ meeting_id: meetingId, content, created_by: user?.id })
+            .insert({ meeting_id: meetingId, ...payload, created_by: user?.id })
         if (error) throw error
     }
 
-    async function updateNote(noteId: string, content: string) {
+    async function updateNote(noteId: string, payload: { title?: string; content?: string }) {
         const { error } = await supabase
             .from('meeting_notes')
-            .update({ content })
+            .update(payload)
             .eq('id', noteId)
         if (error) throw error
     }

@@ -9,6 +9,9 @@ import {
     SyvoraCard, SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraEmptyState, SyvoraTabs, useIsMobile,
 } from '@syvora/ui'
+import { marked } from 'marked'
+
+marked.setOptions({ breaks: true, gfm: true })
 
 const isMobile = useIsMobile()
 const route = useRoute()
@@ -41,9 +44,10 @@ const mandatorUsers = ref<MandatorUser[]>([])
 // ── Note form ───────────────────────────────────────────────────────────────
 const showNoteModal = ref(false)
 const editingNote = ref<MeetingNote | null>(null)
-const noteForm = ref({ content: '' })
+const noteForm = ref({ title: '', content: '' })
 const savingNote = ref(false)
 const noteError = ref('')
+const viewingNote = ref<MeetingNote | null>(null)
 
 // ── Task form ───────────────────────────────────────────────────────────────
 const showTaskModal = ref(false)
@@ -189,28 +193,38 @@ function availableUsers() {
 // ── Notes ───────────────────────────────────────────────────────────────────
 function openCreateNote() {
     editingNote.value = null
-    noteForm.value = { content: '' }
+    noteForm.value = { title: '', content: '' }
     noteError.value = ''
     showNoteModal.value = true
 }
 
 function openEditNote(note: MeetingNote) {
     editingNote.value = note
-    noteForm.value = { content: note.content }
+    noteForm.value = { title: note.title, content: note.content }
     noteError.value = ''
     showNoteModal.value = true
 }
 
+function openViewNote(note: MeetingNote) {
+    viewingNote.value = note
+}
+
+function renderMarkdown(content: string): string {
+    return marked.parse(content) as string
+}
+
 async function saveNote() {
+    if (!noteForm.value.title.trim()) { noteError.value = 'Title is required.'; return }
     if (!noteForm.value.content.trim()) { noteError.value = 'Content is required.'; return }
     if (!selectedMeeting.value) return
     savingNote.value = true
     noteError.value = ''
     try {
+        const payload = { title: noteForm.value.title.trim(), content: noteForm.value.content.trim() }
         if (editingNote.value) {
-            await updateNote(editingNote.value.id, noteForm.value.content.trim())
+            await updateNote(editingNote.value.id, payload)
         } else {
-            await createNote(selectedMeeting.value.id, noteForm.value.content.trim())
+            await createNote(selectedMeeting.value.id, payload)
         }
         await loadNotes(selectedMeeting.value.id)
         showNoteModal.value = false
@@ -226,6 +240,7 @@ async function handleDeleteNote(noteId: string) {
     if (!selectedMeeting.value) return
     try {
         await deleteNote(noteId)
+        if (viewingNote.value?.id === noteId) viewingNote.value = null
         await loadNotes(selectedMeeting.value.id)
     } catch (e: any) {
         alert(e.message ?? 'Failed to delete note.')
@@ -392,28 +407,59 @@ function isOverdue(deadline: string | null) {
 
             <!-- ── Notes tab ─────────────────────────────────────────────── -->
             <template v-if="detailTab === 'notes'">
-                <div class="section-header">
-                    <SyvoraButton size="sm" @click="openCreateNote">+ Add Note</SyvoraButton>
-                </div>
-                <SyvoraEmptyState v-if="notes.length === 0" title="No notes yet"
-                    description="Add a note to this meeting." />
-                <SyvoraCard v-else>
-                    <div class="note-list">
-                        <div v-for="note in notes" :key="note.id" class="note-row">
-                            <div class="note-content">{{ note.content }}</div>
-                            <div class="note-footer">
-                                <span class="note-meta">{{ note.creator_name ?? 'Unknown' }} &middot; {{
-                                    formatDateTime(note.created_at) }}</span>
-                                <div class="note-actions">
-                                    <SyvoraButton variant="ghost" size="sm"
-                                        @click="openEditNote(note)">Edit</SyvoraButton>
-                                    <SyvoraButton variant="ghost" size="sm" class="btn-danger"
-                                        @click="handleDeleteNote(note.id)">Delete</SyvoraButton>
+                <!-- Note detail view -->
+                <template v-if="viewingNote">
+                    <div class="section-header" style="justify-content: flex-start;">
+                        <button class="back-btn" @click="viewingNote = null">&larr; Back to notes</button>
+                    </div>
+                    <SyvoraCard>
+                        <div class="note-detail">
+                            <h2 class="note-detail-title">{{ viewingNote.title || 'Untitled' }}</h2>
+                            <div class="note-detail-meta">
+                                {{ viewingNote.creator_name ?? 'Unknown' }} &middot;
+                                {{ formatDateTime(viewingNote.created_at) }}
+                                <span v-if="viewingNote.updated_at !== viewingNote.created_at">
+                                    &middot; edited {{ formatDateTime(viewingNote.updated_at) }}
+                                </span>
+                            </div>
+                            <div class="markdown-body" v-html="renderMarkdown(viewingNote.content)"></div>
+                            <div class="note-detail-actions">
+                                <SyvoraButton size="sm" @click="openEditNote(viewingNote)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger"
+                                    @click="handleDeleteNote(viewingNote.id)">Delete</SyvoraButton>
+                            </div>
+                        </div>
+                    </SyvoraCard>
+                </template>
+
+                <!-- Note list view -->
+                <template v-else>
+                    <div class="section-header">
+                        <SyvoraButton size="sm" @click="openCreateNote">+ Add Note</SyvoraButton>
+                    </div>
+                    <SyvoraEmptyState v-if="notes.length === 0" title="No notes yet"
+                        description="Add a note to this meeting." />
+                    <SyvoraCard v-else>
+                        <div class="note-list">
+                            <div v-for="note in notes" :key="note.id" class="note-row"
+                                @click="openViewNote(note)" style="cursor: pointer;">
+                                <div class="note-title">{{ note.title || 'Untitled' }}</div>
+                                <div class="note-preview">{{ note.content.slice(0, 120) }}{{
+                                    note.content.length > 120 ? '...' : '' }}</div>
+                                <div class="note-footer">
+                                    <span class="note-meta">{{ note.creator_name ?? 'Unknown' }} &middot; {{
+                                        formatDateTime(note.created_at) }}</span>
+                                    <div class="note-actions" @click.stop>
+                                        <SyvoraButton variant="ghost" size="sm"
+                                            @click="openEditNote(note)">Edit</SyvoraButton>
+                                        <SyvoraButton variant="ghost" size="sm" class="btn-danger"
+                                            @click="handleDeleteNote(note.id)">Delete</SyvoraButton>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </SyvoraCard>
+                    </SyvoraCard>
+                </template>
             </template>
 
             <!-- ── Tasks tab ─────────────────────────────────────────────── -->
@@ -509,13 +555,17 @@ function isOverdue(deadline: string | null) {
     </SyvoraModal>
 
     <!-- ── Note Modal ────────────────────────────────────────────────────── -->
-    <SyvoraModal v-if="showNoteModal" :title="editingNote ? 'Edit Note' : 'Add Note'" size="sm"
+    <SyvoraModal v-if="showNoteModal" :title="editingNote ? 'Edit Note' : 'Add Note'" size="lg"
         @close="showNoteModal = false">
         <div class="modal-form">
-            <SyvoraFormField label="Content" for="nt-content">
-                <textarea id="nt-content" v-model="noteForm.content" class="native-textarea" rows="5"
-                    placeholder="Write your note..."></textarea>
+            <SyvoraFormField label="Title" for="nt-title">
+                <SyvoraInput id="nt-title" v-model="noteForm.title" placeholder="Note title" />
             </SyvoraFormField>
+            <SyvoraFormField label="Content" for="nt-content">
+                <textarea id="nt-content" v-model="noteForm.content" class="native-textarea" rows="12"
+                    placeholder="Write your note... (Markdown supported)"></textarea>
+            </SyvoraFormField>
+            <p class="hint-text">Supports Markdown: **bold**, *italic*, # headings, - lists, ```code```, etc.</p>
             <p v-if="noteError" class="error-msg">{{ noteError }}</p>
         </div>
         <template #footer>
@@ -769,19 +819,31 @@ function isOverdue(deadline: string | null) {
 }
 
 .note-row {
-    padding: 1rem 0;
+    padding: 1rem 0.75rem;
     border-bottom: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
 }
 
 .note-row:last-child {
     border-bottom: none;
 }
 
-.note-content {
+.note-title {
     font-size: 0.9375rem;
-    line-height: 1.6;
-    white-space: pre-wrap;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.note-preview {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
     margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .note-footer {
@@ -960,6 +1022,137 @@ function isOverdue(deadline: string | null) {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
     margin: 0;
+}
+
+.note-row:hover {
+    background: rgba(115, 195, 254, 0.04);
+}
+
+.note-detail {
+    padding: 0.5rem 0;
+}
+
+.note-detail-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+}
+
+.note-detail-meta {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.note-detail-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ── Markdown rendering ─────────────────────────────────────────────── */
+.markdown-body {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    word-wrap: break-word;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
+    margin: 1.25rem 0 0.5rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.markdown-body :deep(h1) { font-size: 1.5rem; }
+.markdown-body :deep(h2) { font-size: 1.25rem; }
+.markdown-body :deep(h3) { font-size: 1.1rem; }
+
+.markdown-body :deep(p) {
+    margin: 0 0 0.75rem;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+    margin: 0 0 0.75rem;
+    padding-left: 1.5rem;
+}
+
+.markdown-body :deep(li) {
+    margin-bottom: 0.25rem;
+}
+
+.markdown-body :deep(code) {
+    background: rgba(115, 195, 254, 0.08);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.markdown-body :deep(pre) {
+    background: rgba(0, 0, 0, 0.04);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    overflow-x: auto;
+    margin: 0 0 0.75rem;
+}
+
+.markdown-body :deep(pre code) {
+    background: none;
+    padding: 0;
+}
+
+.markdown-body :deep(blockquote) {
+    border-left: 3px solid var(--color-accent);
+    padding-left: 1rem;
+    margin: 0 0 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.markdown-body :deep(hr) {
+    border: none;
+    border-top: 1px solid var(--color-border-subtle);
+    margin: 1rem 0;
+}
+
+.markdown-body :deep(a) {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+.markdown-body :deep(a:hover) {
+    text-decoration: underline;
+}
+
+.markdown-body :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 0.75rem;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+    border: 1px solid var(--color-border-subtle);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+.markdown-body :deep(th) {
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.markdown-body :deep(img) {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
 }
 
 :deep(.btn-danger) {
