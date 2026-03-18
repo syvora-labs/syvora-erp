@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
+import { useMandator } from './useMandator'
 
 export interface FinancialTransaction {
     id: string
@@ -27,12 +28,18 @@ const transactions = ref<FinancialTransaction[]>([])
 const loading = ref(false)
 
 export function useFinancialTransactions() {
+    const { mandator } = useMandator()
+
     async function fetchTransactions() {
         loading.value = true
-        const { data, error } = await supabase
+        let query = supabase
             .from('financial_transactions')
             .select('*, financial_categories(name, color), events(title), releases(title)')
             .order('transaction_date', { ascending: false })
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query
         if (error) throw error
 
         const raw = data ?? []
@@ -93,6 +100,7 @@ export function useFinancialTransactions() {
                 event_id: payload.event_id || null,
                 release_id: payload.release_id || null,
                 created_by: user?.id,
+                mandator_id: mandator.value?.id,
             })
             .select()
             .single()

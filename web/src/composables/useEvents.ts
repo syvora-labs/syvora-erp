@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabase'
+import { useMandator } from './useMandator'
 
 export interface LabelEvent {
     id: string
@@ -24,15 +25,21 @@ const events = ref<LabelEvent[]>([])
 const loading = ref(false)
 
 export function useEvents() {
+    const { mandator } = useMandator()
+
     const activeEvents = computed(() => events.value.filter(e => !e.is_archived))
     const archivedEvents = computed(() => events.value.filter(e => e.is_archived).reverse())
 
     async function fetchEvents() {
         loading.value = true
-        const { data, error } = await supabase
+        let query = supabase
             .from('events')
             .select('*')
             .order('event_date', { ascending: true, nullsFirst: false })
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query
         if (error) throw error
 
         const raw = (data ?? []) as Omit<LabelEvent, 'creator_name' | 'updater_name'>[]
@@ -70,7 +77,7 @@ export function useEvents() {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('events')
-            .insert({ ...payload, created_by: user?.id, lineup: payload.lineup ?? [] })
+            .insert({ ...payload, created_by: user?.id, mandator_id: mandator.value?.id, lineup: payload.lineup ?? [] })
             .select()
             .single()
         if (error) throw error
