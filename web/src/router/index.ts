@@ -11,6 +11,7 @@ import AdminView from "../views/AdminView.vue";
 import FinancialsView from "../views/FinancialsView.vue";
 import RadiosView from "../views/RadiosView.vue";
 import AssociationsView from "../views/AssociationsView.vue";
+import AssociationMemberDetailView from "../views/AssociationMemberDetailView.vue";
 import MeetingsView from "../views/MeetingsView.vue";
 
 const router = createRouter({
@@ -25,6 +26,7 @@ const router = createRouter({
         { path: "/artists/:id", component: ArtistDetailView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/financials", component: FinancialsView, meta: { requiresAuth: true, module: "financials" } },
         { path: "/associations", component: AssociationsView, meta: { requiresAuth: true, module: "associations" } },
+        { path: "/associations/:id", component: AssociationMemberDetailView, meta: { requiresAuth: true, module: "associations" } },
         { path: "/meetings", component: MeetingsView, meta: { requiresAuth: true, module: "meetings" } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
