@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { RouterView, RouterLink, useRouter } from 'vue-router'
 import { useAuth } from './composables/useAuth'
-import { useMandator } from './composables/useMandator'
 import { useNotifications } from './composables/useNotifications'
-import { AppShell, SyvoraButton, SyvoraAvatar } from '@syvora/ui'
+import { useNavGroups } from './composables/useNavGroups'
+import { AppShell, SyvoraButton, SyvoraAvatar, SyvoraCommandPalette, useHotkey } from '@syvora/ui'
+import type { CommandItem } from '@syvora/ui'
+import NavDropdown from './components/NavDropdown.vue'
 
-const { currentProfile, isAuthenticated, isAdmin, signOut } = useAuth()
-const { releasesEnabled, eventsEnabled, radiosEnabled, artistsEnabled, financialsEnabled, associationsEnabled, meetingsEnabled } = useMandator()
+const { currentProfile, isAuthenticated, signOut } = useAuth()
+const { flatItems } = useNavGroups()
 const { notifications, unreadCount, markAsRead, markAllAsRead, startPolling, stopPolling } = useNotifications()
 
 const showInbox = ref(false)
@@ -54,6 +56,30 @@ function formatTimeAgo(iso: string) {
 }
 const router = useRouter()
 
+// ── Command palette ──
+const paletteOpen = ref(false)
+
+useHotkey('k', () => {
+    if (isAuthenticated.value) paletteOpen.value = !paletteOpen.value
+})
+
+const paletteItems = computed<CommandItem[]>(() =>
+    flatItems.value.map((item) => ({
+        id: item.to,
+        label: item.label,
+        group: item.group,
+        keywords: item.keywords,
+    }))
+)
+
+function handlePaletteSelect(item: CommandItem) {
+    if (item.id === '__signout') {
+        handleSignOut()
+    } else {
+        router.push(item.id)
+    }
+}
+
 async function handleSignOut() {
     await signOut()
     router.push('/login')
@@ -68,24 +94,17 @@ async function handleSignOut() {
         </template>
 
         <template v-if="isAuthenticated" #nav>
-            <RouterLink v-if="releasesEnabled" to="/releases" class="nav-link" active-class="nav-link--active">Releases
-            </RouterLink>
-            <RouterLink v-if="eventsEnabled" to="/events" class="nav-link" active-class="nav-link--active">Events
-            </RouterLink>
-            <RouterLink v-if="radiosEnabled" to="/radios" class="nav-link" active-class="nav-link--active">Radios
-            </RouterLink>
-            <RouterLink v-if="artistsEnabled" to="/artists" class="nav-link" active-class="nav-link--active">Artists
-            </RouterLink>
-            <RouterLink v-if="financialsEnabled" to="/financials" class="nav-link" active-class="nav-link--active">
-                Financials</RouterLink>
-            <RouterLink v-if="associationsEnabled" to="/associations" class="nav-link" active-class="nav-link--active">
-                Associations</RouterLink>
-            <RouterLink v-if="meetingsEnabled" to="/meetings" class="nav-link" active-class="nav-link--active">
-                Meetings</RouterLink>
-            <RouterLink v-if="isAdmin" to="/admin" class="nav-link" active-class="nav-link--active">Administration</RouterLink>
+            <NavDropdown />
         </template>
 
         <template v-if="isAuthenticated" #actions-mobile>
+            <button class="inbox-btn" @click="paletteOpen = true" title="Search (Cmd+K)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+            </button>
             <div class="inbox-wrapper" ref="inboxBtnMobileRef">
                 <button class="inbox-btn" @click="toggleInbox($event, true)" title="Notifications">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,6 +136,9 @@ async function handleSignOut() {
         </template>
 
         <RouterView />
+
+        <SyvoraCommandPalette v-if="isAuthenticated" v-model="paletteOpen" :items="paletteItems"
+            @select="handlePaletteSelect" />
 
         <template #footer>
             <p>Syvora Record Label Management</p>

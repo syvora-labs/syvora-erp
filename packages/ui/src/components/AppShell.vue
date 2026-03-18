@@ -93,7 +93,6 @@ const isMobile = useIsMobile()
     background: #fff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
 }
 
 .shell-header-inner {
@@ -155,7 +154,7 @@ const isMobile = useIsMobile()
     padding-left: 1.5rem;
 }
 
-:slotted(.nav-link) {
+.shell-nav :deep(.nav-link) {
     font-size: 0.875rem;
     font-weight: 500;
     color: rgba(10, 26, 18, 0.5);
@@ -165,12 +164,12 @@ const isMobile = useIsMobile()
     transition: color 0.15s, background 0.15s;
 }
 
-:slotted(.nav-link:hover) {
+.shell-nav :deep(.nav-link:hover) {
     color: var(--color-text);
     background: rgba(0, 0, 0, 0.04);
 }
 
-:slotted(.nav-link--active) {
+.shell-nav :deep(.nav-link--active) {
     color: var(--color-accent);
     background: rgba(115, 195, 254, 0.12);
     font-weight: 600;
@@ -257,7 +256,7 @@ const isMobile = useIsMobile()
     flex: 1;
 }
 
-.shell-drawer-nav :slotted(.nav-link) {
+.shell-drawer-nav :deep(.nav-link) {
     font-size: 0.9375rem;
     font-weight: 500;
     color: rgba(10, 26, 18, 0.6);
@@ -267,12 +266,12 @@ const isMobile = useIsMobile()
     transition: color 0.15s, background 0.15s;
 }
 
-.shell-drawer-nav :slotted(.nav-link:hover) {
+.shell-drawer-nav :deep(.nav-link:hover) {
     color: var(--color-text);
     background: rgba(0, 0, 0, 0.04);
 }
 
-.shell-drawer-nav :slotted(.nav-link--active) {
+.shell-drawer-nav :deep(.nav-link--active) {
     color: var(--color-accent);
     background: rgba(115, 195, 254, 0.12);
     font-weight: 600;
