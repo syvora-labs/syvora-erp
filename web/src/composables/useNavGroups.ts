@@ -29,6 +29,7 @@ const GROUP_DEFS: { label: string; items: { route: string; label: string; keywor
             { route: 'financials', label: 'Financials', keywords: ['finance', 'money', 'revenue', 'expense', 'accounting'] },
             { route: 'associations', label: 'Associations', keywords: ['association', 'organization', 'partner'] },
             { route: 'meetings', label: 'Meetings', keywords: ['meeting', 'agenda', 'minutes', 'notes'] },
+            { route: 'roadmap', label: 'Roadmap', keywords: ['roadmap', 'timeline', 'planning', 'schedule', 'gantt'] },
         ],
     },
 ]
