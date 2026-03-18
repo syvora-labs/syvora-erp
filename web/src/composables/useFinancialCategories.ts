@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
+import { useMandator } from './useMandator'
 
 export interface FinancialCategory {
     id: string
@@ -39,12 +40,18 @@ async function enrichWithNames<T extends { created_by: string | null; updated_by
 }
 
 export function useFinancialCategories() {
+    const { mandator } = useMandator()
+
     async function fetchCategories() {
         loading.value = true
-        const { data, error } = await supabase
+        let query = supabase
             .from('financial_categories')
             .select('*')
             .order('name', { ascending: true })
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query
         if (error) throw error
         categories.value = await enrichWithNames(data ?? [])
         loading.value = false
@@ -54,7 +61,7 @@ export function useFinancialCategories() {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('financial_categories')
-            .insert({ ...payload, created_by: user?.id })
+            .insert({ ...payload, created_by: user?.id, mandator_id: mandator.value?.id })
             .select()
             .single()
         if (error) throw error

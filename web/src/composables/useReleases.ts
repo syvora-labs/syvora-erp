@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { supabase } from '../lib/supabase'
+import { useMandator } from './useMandator'
 
 export type ReleaseType = 'album' | 'ep' | 'single' | 'compilation'
 
@@ -33,12 +34,18 @@ const releases = ref<Release[]>([])
 const loading = ref(false)
 
 export function useReleases() {
+    const { mandator } = useMandator()
+
     async function fetchReleases() {
         loading.value = true
-        const { data, error } = await supabase
+        let query = supabase
             .from('releases')
             .select('*, tracks(*)')
             .order('release_date', { ascending: false })
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query
         if (error) throw error
 
         const raw = (data ?? []) as Omit<Release, 'creator_name' | 'updater_name'>[]
@@ -75,7 +82,7 @@ export function useReleases() {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('releases')
-            .insert({ ...payload, created_by: user?.id })
+            .insert({ ...payload, created_by: user?.id, mandator_id: mandator.value?.id })
             .select()
             .single()
         if (error) throw error

@@ -17,24 +17,20 @@ import { useFinancialCategories, type FinancialCategory } from '../composables/u
 import { useFinancialTransactions, type FinancialTransaction } from '../composables/useFinancialTransactions'
 import { useFinancialDashboard, type DashboardPeriod } from '../composables/useFinancialDashboard'
 import { useEvents } from '../composables/useEvents'
-import { supabase } from '../lib/supabase'
+import { useReleases } from '../composables/useReleases'
+import { useMandator } from '../composables/useMandator'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend)
 
 const { categories, loading: catLoading, fetchCategories, createCategory, updateCategory, deleteCategory } = useFinancialCategories()
 const { transactions, loading: txLoading, fetchTransactions, createTransaction, updateTransaction, deleteTransaction } = useFinancialTransactions()
 const { events, fetchEvents } = useEvents()
+const { releases, fetchReleases } = useReleases()
+const { eventsEnabled, releasesEnabled } = useMandator()
 const {
     period, totalIncome, totalExpenses, netBalance,
     monthlyChartData, categoryChartData, recentTransactions,
 } = useFinancialDashboard(transactions)
-
-const releases = ref<{ id: string; title: string }[]>([])
-
-async function fetchReleases() {
-    const { data } = await supabase.from('releases').select('id, title').order('title')
-    releases.value = data ?? []
-}
 
 const activeTab = ref('dashboard')
 
@@ -419,14 +415,14 @@ const periods: { key: DashboardPeriod; label: string }[] = [
                 <span class="checkbox-hint">Pending transactions are excluded from dashboard charts</span>
             </label>
 
-            <SyvoraFormField label="Linked Event" for="tx-event">
+            <SyvoraFormField v-if="eventsEnabled" label="Linked Event" for="tx-event">
                 <select id="tx-event" v-model="txForm.event_id" class="native-select">
                     <option value="">— None —</option>
                     <option v-for="e in events" :key="e.id" :value="e.id">{{ e.title }}</option>
                 </select>
             </SyvoraFormField>
 
-            <SyvoraFormField label="Linked Release" for="tx-release">
+            <SyvoraFormField v-if="releasesEnabled" label="Linked Release" for="tx-release">
                 <select id="tx-release" v-model="txForm.release_id" class="native-select">
                     <option value="">— None —</option>
                     <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.title }}</option>
