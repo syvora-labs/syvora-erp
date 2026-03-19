@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
@@ -35,7 +35,28 @@ const form = ref({
 const artworkFile = ref<File | null>(null)
 const artworkPreview = ref<string | null>(null)
 
-onMounted(fetchEvents)
+const openMenuId = ref<string | null>(null)
+
+function toggleMenu(eventId: string) {
+    openMenuId.value = openMenuId.value === eventId ? null : eventId
+}
+
+function closeMenu() {
+    openMenuId.value = null
+}
+
+function onDocClick() {
+    openMenuId.value = null
+}
+
+onMounted(() => {
+    fetchEvents()
+    document.addEventListener('click', onDocClick)
+})
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', onDocClick)
+})
 
 function openCreate() {
     editingEvent.value = null
@@ -151,6 +172,22 @@ async function handleUnarchive(event: LabelEvent) {
     }
 }
 
+async function handleDuplicate(event: LabelEvent) {
+    closeMenu()
+    try {
+        await createEvent({
+            title: `${event.title} (Copy)`,
+            description: event.description,
+            lineup: [...event.lineup],
+            location: event.location,
+            event_date: event.event_date,
+            ticket_link: event.ticket_link,
+        })
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to duplicate event.')
+    }
+}
+
 async function handleDelete(event: LabelEvent) {
     if (!confirm(`Delete "${event.title}"?`)) return
     try {
@@ -211,6 +248,23 @@ function formatAuditDate(d: string) {
                     class="event-card"
                     :class="{ 'event-card--draft': event.is_draft }"
                 >
+                    <div class="event-more">
+                        <button class="event-more-btn" @click.stop="toggleMenu(event.id)" aria-label="More actions">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                        <div v-if="openMenuId === event.id" class="event-more-menu">
+                            <button class="event-more-item" @click="handleDuplicate(event)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                                Duplicate
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="event-artwork">
                         <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
                         <div v-else class="event-artwork-placeholder">◆</div>
@@ -398,13 +452,14 @@ function formatAuditDate(d: string) {
 .events-list { display: flex; flex-direction: column; gap: 1rem; }
 
 .event-card {
+    position: relative;
     background: var(--color-surface);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     transition: box-shadow 0.3s;
 }
@@ -417,7 +472,7 @@ function formatAuditDate(d: string) {
     opacity: 0.6;
 }
 
-.event-artwork { width: 160px; flex-shrink: 0; overflow: hidden; }
+.event-artwork { width: 160px; flex-shrink: 0; overflow: hidden; border-radius: var(--radius-card) 0 0 var(--radius-card); }
 .event-artwork img { width: 100%; height: 100%; object-fit: cover; }
 .event-artwork-placeholder {
     width: 100%; min-height: 140px; height: 100%;
@@ -499,6 +554,68 @@ function formatAuditDate(d: string) {
     background: rgba(115,195,254,0.06);
     border-radius: var(--radius-sm);
     border: 1px solid rgba(115,195,254,0.15);
+}
+
+/* ── More menu ─────────────────────────────────────────────────────── */
+.event-more {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+}
+
+.event-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+    background: #fff;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.event-more-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--color-text);
+}
+
+.event-more-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.625rem;
+    padding: 0.25rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 16px 32px rgba(0, 0, 0, 0.06);
+    z-index: 100;
+}
+
+.event-more-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    border: none;
+    background: none;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.1s;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.event-more-item:hover {
+    background: rgba(0, 0, 0, 0.04);
 }
 
 :deep(.btn-danger) { color: var(--color-error); }
