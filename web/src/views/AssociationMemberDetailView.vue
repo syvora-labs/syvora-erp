@@ -123,15 +123,20 @@ function formatDateTime(iso: string) {
         <template v-else-if="member">
             <!-- Member header -->
             <div class="member-header">
-                <div
-                    class="member-avatar-lg"
-                    :style="member.role_color ? {
-                        background: member.role_color + '1f',
-                        color: member.role_color,
-                        borderColor: member.role_color + '40',
-                    } : {}"
-                >
-                    {{ member.name.charAt(0).toUpperCase() }}
+                <div class="member-avatar-wrap">
+                    <div
+                        class="member-avatar-lg"
+                        :style="member.role_color ? {
+                            background: member.role_color + '1f',
+                            color: member.role_color,
+                            borderColor: member.role_color + '40',
+                        } : {}"
+                    >
+                        {{ member.name.charAt(0).toUpperCase() }}
+                    </div>
+                    <svg v-if="member.role_has_crown" class="member-crown-lg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/>
+                    </svg>
                 </div>
                 <div class="member-header-info">
                     <div class="member-name-row">
@@ -267,6 +272,11 @@ function formatDateTime(iso: string) {
     margin-bottom: 2rem;
 }
 
+.member-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
 .member-avatar-lg {
     width: 96px;
     height: 96px;
@@ -280,6 +290,17 @@ function formatDateTime(iso: string) {
     font-size: 2.5rem;
     font-weight: 700;
     flex-shrink: 0;
+}
+
+.member-crown-lg {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 32px;
+    color: #f5a623;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
 }
 
 .member-header-info {

@@ -35,9 +35,7 @@ const emit = defineEmits<{ close: [] }>()
 .syvora-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 26, 18, 0.2);
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -46,10 +44,8 @@ const emit = defineEmits<{ close: [] }>()
 }
 
 .syvora-modal {
-    background: rgba(255, 255, 255, 0.84);
-    backdrop-filter: blur(48px) saturate(200%);
-    -webkit-backdrop-filter: blur(48px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.65);
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 1.5rem;
     width: 100%;
     display: flex;
@@ -57,11 +53,8 @@ const emit = defineEmits<{ close: [] }>()
     max-height: 90vh;
     overflow: hidden;
     box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.8) inset,
-        0 2px 0 rgba(255, 255, 255, 0.95) inset,
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        0 32px 64px rgba(0, 0, 0, 0.08),
-        0 2px 8px rgba(0, 0, 0, 0.06);
+        0 8px 32px rgba(0, 0, 0, 0.12),
+        0 32px 64px rgba(0, 0, 0, 0.08);
 }
 
 .syvora-modal--sm { max-width: 360px; }
@@ -75,7 +68,7 @@ const emit = defineEmits<{ close: [] }>()
     padding: 1.125rem 1.375rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.5);
+    background: #fafafa;
 }
 
 .syvora-modal-title {
@@ -124,6 +117,6 @@ const emit = defineEmits<{ close: [] }>()
     padding: 1rem 1.375rem;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.5);
+    background: #fafafa;
 }
 </style>

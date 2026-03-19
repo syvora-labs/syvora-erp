@@ -6,6 +6,7 @@ export interface AssociationRole {
     id: string
     name: string
     color: string
+    has_crown: boolean
     mandator_id: string | null
     created_by: string | null
     updated_by: string | null
@@ -30,6 +31,7 @@ export interface AssociationMember {
     updater_name: string | null
     role_name: string | null
     role_color: string | null
+    role_has_crown: boolean
 }
 
 export interface AssociationMemberNote {
@@ -91,7 +93,7 @@ export function useAssociations() {
         loadingRoles.value = false
     }
 
-    async function createRole(payload: { name: string; color: string }) {
+    async function createRole(payload: { name: string; color: string; has_crown?: boolean }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('association_roles')
@@ -100,7 +102,7 @@ export function useAssociations() {
         await fetchRoles()
     }
 
-    async function updateRole(id: string, payload: { name?: string; color?: string }) {
+    async function updateRole(id: string, payload: { name?: string; color?: string; has_crown?: boolean }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('association_roles')
@@ -126,7 +128,7 @@ export function useAssociations() {
         loading.value = true
         const { data, error } = await supabase
             .from('association_members')
-            .select('*, association_roles(name, color)')
+            .select('*, association_roles(name, color, has_crown)')
             .order('name', { ascending: true })
         if (error) throw error
         const enriched = await enrichWithNames(data ?? [])
@@ -134,6 +136,7 @@ export function useAssociations() {
             ...m,
             role_name: (m as any).association_roles?.name ?? null,
             role_color: (m as any).association_roles?.color ?? null,
+            role_has_crown: (m as any).association_roles?.has_crown ?? false,
         }))
         loading.value = false
     }
