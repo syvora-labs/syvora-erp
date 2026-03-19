@@ -1397,6 +1397,15 @@ function formatDateRange(start: string, end: string) {
     display: none;
 }
 
+.mobile .roadmap-info {
+    width: 100%;
+}
+
+.mobile .roadmap-name {
+    white-space: normal;
+    word-break: break-word;
+}
+
 .mobile .roadmap-row-end {
     width: 100%;
     flex-direction: column;
@@ -1406,6 +1415,8 @@ function formatDateRange(start: string, end: string) {
 
 .mobile .roadmap-meta {
     text-align: left;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .mobile .roadmap-actions {

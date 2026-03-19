@@ -36,7 +36,7 @@ const showRoleModal = ref(false)
 const editingRole = ref<AssociationRole | null>(null)
 const savingRole = ref(false)
 const roleError = ref('')
-const roleForm = ref({ name: '', color: '#73c3fe' })
+const roleForm = ref({ name: '', color: '#73c3fe', has_crown: false })
 
 onMounted(async () => {
     await Promise.all([fetchMembers(), fetchRoles()])
@@ -112,14 +112,14 @@ function openMemberDetail(member: AssociationMember) {
 // ── Role handlers ────────────────────────────────────────────────────────────
 function openCreateRole() {
     editingRole.value = null
-    roleForm.value = { name: '', color: '#73c3fe' }
+    roleForm.value = { name: '', color: '#73c3fe', has_crown: false }
     roleError.value = ''
     showRoleModal.value = true
 }
 
 function openEditRole(role: AssociationRole) {
     editingRole.value = role
-    roleForm.value = { name: role.name, color: role.color }
+    roleForm.value = { name: role.name, color: role.color, has_crown: role.has_crown }
     roleError.value = ''
     showRoleModal.value = true
 }
@@ -140,6 +140,7 @@ async function saveRole() {
         const payload = {
             name: roleForm.value.name.trim(),
             color: roleForm.value.color,
+            has_crown: roleForm.value.has_crown,
         }
         if (editingRole.value) {
             await updateRole(editingRole.value.id, payload)
@@ -191,14 +192,19 @@ function formatDate(iso: string) {
             <SyvoraCard v-else>
                 <div class="member-list">
                     <div v-for="member in members" :key="member.id" class="member-row" @click="openMemberDetail(member)">
-                        <div
-                            class="member-avatar"
-                            :style="member.role_color ? {
-                                background: member.role_color + '1f',
-                                color: member.role_color,
-                            } : {}"
-                        >
-                            <span>{{ member.name.charAt(0).toUpperCase() }}</span>
+                        <div class="member-avatar-wrap">
+                            <div
+                                class="member-avatar"
+                                :style="member.role_color ? {
+                                    background: member.role_color + '1f',
+                                    color: member.role_color,
+                                } : {}"
+                            >
+                                <span>{{ member.name.charAt(0).toUpperCase() }}</span>
+                            </div>
+                            <svg v-if="member.role_has_crown" class="member-crown" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/>
+                            </svg>
                         </div>
                         <div class="member-info">
                             <div class="member-name-row">
@@ -240,7 +246,10 @@ function formatDate(iso: string) {
                     <div v-for="role in roles" :key="role.id" class="role-row">
                         <div class="role-color-dot" :style="{ background: role.color }"></div>
                         <div class="role-info">
-                            <span class="role-name">{{ role.name }}</span>
+                            <span class="role-name">
+                                {{ role.name }}
+                                <svg v-if="role.has_crown" class="role-crown-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/></svg>
+                            </span>
                             <span class="role-member-count">{{ members.filter(m => m.role_id === role.id).length }} members</span>
                         </div>
                         <div class="role-row-end">
@@ -310,6 +319,16 @@ function formatDate(iso: string) {
                     <span class="color-preview" :style="{ background: roleForm.color }">{{ roleForm.color }}</span>
                 </div>
             </SyvoraFormField>
+
+            <div class="crown-toggle-row">
+                <label class="crown-toggle" @click="roleForm.has_crown = !roleForm.has_crown">
+                    <span class="crown-toggle-track" :class="{ active: roleForm.has_crown }">
+                        <span class="crown-toggle-thumb"></span>
+                    </span>
+                    <svg class="crown-toggle-icon" :class="{ active: roleForm.has_crown }" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z"/></svg>
+                    <span class="crown-toggle-label">Crown on avatar</span>
+                </label>
+            </div>
 
             <p v-if="roleError" class="error-msg">{{ roleError }}</p>
         </div>
@@ -384,6 +403,11 @@ function formatDate(iso: string) {
     border-bottom: none;
 }
 
+.member-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
 .member-avatar {
     width: 2.5rem;
     height: 2.5rem;
@@ -396,6 +420,17 @@ function formatDate(iso: string) {
     font-weight: 700;
     font-size: 1rem;
     flex-shrink: 0;
+}
+
+.member-crown {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 18px;
+    color: #f5a623;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
 }
 
 .member-info {
@@ -503,6 +538,15 @@ function formatDate(iso: string) {
 .role-name {
     font-size: 0.9375rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.role-crown-icon {
+    width: 14px;
+    height: 14px;
+    color: #f5a623;
 }
 
 .role-member-count {
@@ -587,6 +631,67 @@ function formatDate(iso: string) {
     color: #fff;
 }
 
+/* ── Crown toggle ─────────────────────────────────────────────────────── */
+.crown-toggle-row {
+    padding-top: 0.25rem;
+}
+
+.crown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.crown-toggle-track {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.crown-toggle-track.active {
+    background: var(--color-accent, #73c3fe);
+}
+
+.crown-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.crown-toggle-track.active .crown-toggle-thumb {
+    transform: translateX(16px);
+}
+
+.crown-toggle-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--color-text-muted);
+    opacity: 0.4;
+    transition: color 0.2s, opacity 0.2s;
+}
+
+.crown-toggle-icon.active {
+    color: #f5a623;
+    opacity: 1;
+}
+
+.crown-toggle-label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
 :deep(.btn-danger) {
     color: var(--color-error, #f87171);
 }
@@ -595,29 +700,75 @@ function formatDate(iso: string) {
     flex-wrap: wrap;
 }
 
+.mobile .page-title {
+    font-size: 1.375rem;
+}
+
 .mobile .member-row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 0;
+}
+
+.mobile .member-info {
+    width: 100%;
+}
+
+.mobile .member-name {
+    white-space: normal;
+    word-break: break-word;
 }
 
 .mobile .member-row-end {
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .mobile .member-meta {
     text-align: left;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.mobile .member-actions {
+    width: 100%;
+    flex-wrap: wrap;
 }
 
 .mobile .role-row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 0;
+}
+
+.mobile .role-info {
+    width: 100%;
 }
 
 .mobile .role-row-end {
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .mobile .role-meta {
     text-align: left;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.mobile .role-actions {
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.mobile .native-select {
+    font-size: 0.9375rem;
+    padding: 0.625rem 0.75rem;
 }
 </style>

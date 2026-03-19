@@ -136,9 +136,7 @@ function getFlatIndex(item: CommandItem): number {
 .palette-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 26, 18, 0.2);
-    backdrop-filter: blur(12px) saturate(150%);
-    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -147,10 +145,8 @@ function getFlatIndex(item: CommandItem): number {
 }
 
 .palette-panel {
-    background: rgba(255, 255, 255, 0.84);
-    backdrop-filter: blur(48px) saturate(200%);
-    -webkit-backdrop-filter: blur(48px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.65);
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 1.25rem;
     width: 100%;
     max-width: 520px;
@@ -160,11 +156,8 @@ function getFlatIndex(item: CommandItem): number {
     max-height: 420px;
     overflow: hidden;
     box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.8) inset,
-        0 2px 0 rgba(255, 255, 255, 0.95) inset,
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        0 32px 64px rgba(0, 0, 0, 0.08),
-        0 2px 8px rgba(0, 0, 0, 0.06);
+        0 8px 32px rgba(0, 0, 0, 0.12),
+        0 32px 64px rgba(0, 0, 0, 0.08);
 }
 
 .palette-search {
@@ -263,7 +256,7 @@ function getFlatIndex(item: CommandItem): number {
     gap: 1rem;
     padding: 0.5rem 1rem;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
-    background: rgba(255, 255, 255, 0.5);
+    background: #fafafa;
 }
 
 .palette-hint {

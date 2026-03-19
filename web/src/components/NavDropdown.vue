@@ -131,16 +131,12 @@ function firstItem(group: NavGroup) {
     left: 50%;
     transform: translateX(-50%);
     min-width: 160px;
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(48px) saturate(200%);
-    -webkit-backdrop-filter: blur(48px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.65);
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 0.875rem;
     padding: 0.375rem;
     box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.8) inset,
-        0 2px 0 rgba(255, 255, 255, 0.95) inset,
-        0 4px 16px rgba(0, 0, 0, 0.08),
+        0 4px 16px rgba(0, 0, 0, 0.1),
         0 16px 32px rgba(0, 0, 0, 0.06);
     z-index: 200;
 }
