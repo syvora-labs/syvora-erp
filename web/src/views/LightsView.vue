@@ -4,7 +4,7 @@ import {
     useLights,
     getDefaultConfigForType,
     type Lightshow, type LightshowMode, type LightshowModeType,
-    type GradientConfig, type BuildupConfig, type TextConfig, type SpotlightsConfig, type ModeConfig,
+    type GradientConfig, type BuildupConfig, type TextConfig, type SpotlightsConfig, type DropConfig, type AfterDropConfig, type VividConfig, type ModeConfig,
 } from '../composables/useLights'
 import { useLightshowPlayer } from '../composables/useLightshowPlayer'
 import {
@@ -197,6 +197,20 @@ async function saveMode() {
     }
 }
 
+async function duplicateMode(mode: LightshowMode) {
+    if (!selectedLightshow.value) return
+    try {
+        await createMode(selectedLightshow.value.id, {
+            type: mode.type,
+            config: JSON.parse(JSON.stringify(mode.config)),
+            sort_order: modes.value.length,
+        })
+        await loadModes(selectedLightshow.value.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to duplicate mode.')
+    }
+}
+
 async function handleDeleteMode(mode: LightshowMode) {
     if (!confirm(`Delete this ${mode.type} mode?`)) return
     if (!selectedLightshow.value) return
@@ -212,24 +226,45 @@ async function handleDeleteMode(mode: LightshowMode) {
     }
 }
 
-async function moveModeUp(index: number) {
-    if (index <= 0 || !selectedLightshow.value) return
+// ── Drag-and-drop reordering ────────────────────────────────────────────────
+const dragIndex = ref(-1)
+const dragOverIndex = ref(-1)
+
+function onDragStart(e: DragEvent, index: number) {
+    dragIndex.value = index
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', String(index))
+    }
+}
+
+function onDragOver(e: DragEvent, index: number) {
+    e.preventDefault()
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+    dragOverIndex.value = index
+}
+
+function onDragLeave() {
+    dragOverIndex.value = -1
+}
+
+async function onDrop(e: DragEvent, toIndex: number) {
+    e.preventDefault()
+    dragOverIndex.value = -1
+    const fromIndex = dragIndex.value
+    dragIndex.value = -1
+    if (fromIndex < 0 || fromIndex === toIndex || !selectedLightshow.value) return
+
     const ids = modes.value.map(m => m.id)
-    const tmp = ids[index - 1]!
-    ids[index - 1] = ids[index]!
-    ids[index] = tmp
+    const [moved] = ids.splice(fromIndex, 1)
+    if (moved) ids.splice(toIndex, 0, moved)
     await reorderModes(selectedLightshow.value.id, ids)
     await loadModes(selectedLightshow.value.id)
 }
 
-async function moveModeDown(index: number) {
-    if (index >= modes.value.length - 1 || !selectedLightshow.value) return
-    const ids = modes.value.map(m => m.id)
-    const tmp = ids[index]!
-    ids[index] = ids[index + 1]!
-    ids[index + 1] = tmp
-    await reorderModes(selectedLightshow.value.id, ids)
-    await loadModes(selectedLightshow.value.id)
+function onDragEnd() {
+    dragIndex.value = -1
+    dragOverIndex.value = -1
 }
 
 // ── Fullscreen playback ─────────────────────────────────────────────────────
@@ -249,6 +284,16 @@ watch(() => player.isFullscreen.value, (fs) => {
         // Returned from fullscreen — switch back to preview canvas
         if (previewCanvas.value) {
             player.setCanvas(previewCanvas.value)
+        }
+    }
+})
+
+// Auto-switch to drop mode when drop is triggered during buildup
+player.onDrop(() => {
+    if (selectedMode.value?.type === 'buildup') {
+        const dropMode = modes.value.find(m => m.type === 'drop')
+        if (dropMode) {
+            switchFullscreenMode(dropMode)
         }
     }
 })
@@ -326,6 +371,9 @@ const gradientConfig = computed(() => modeConfig.value as GradientConfig)
 const buildupConfig = computed(() => modeConfig.value as BuildupConfig)
 const textConfig = computed(() => modeConfig.value as TextConfig)
 const spotlightsConfig = computed(() => modeConfig.value as SpotlightsConfig)
+const dropConfig = computed(() => modeConfig.value as DropConfig)
+const afterDropConfig = computed(() => modeConfig.value as AfterDropConfig)
+const vividConfig = computed(() => modeConfig.value as VividConfig)
 
 function addColor() {
     const cfg = modeConfig.value as any
@@ -345,6 +393,9 @@ function formatDate(iso: string) {
 function modeLabel(type: string) {
     if (type === 'gradient_aggressive') return 'Aggressive'
     if (type === 'spotlights') return 'Spotlights'
+    if (type === 'drop') return 'Drop'
+    if (type === 'after_drop') return 'After Drop'
+    if (type === 'vivid') return 'Vivid'
     return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
@@ -426,15 +477,25 @@ function modeLabel(type: string) {
                                     v-for="(mode, i) in modes"
                                     :key="mode.id"
                                     class="mode-item"
-                                    :class="{ active: selectedMode?.id === mode.id }"
+                                    :class="{
+                                        active: selectedMode?.id === mode.id,
+                                        dragging: dragIndex === i,
+                                        'drag-over': dragOverIndex === i && dragIndex !== i,
+                                    }"
+                                    draggable="true"
+                                    @dragstart="onDragStart($event, i)"
+                                    @dragover="onDragOver($event, i)"
+                                    @dragleave="onDragLeave"
+                                    @drop="onDrop($event, i)"
+                                    @dragend="onDragEnd"
                                     @click="selectMode(mode)"
                                 >
                                     <div class="mode-item-header">
+                                        <span class="drag-handle" @click.stop>&#9776;</span>
                                         <span class="mode-type-badge" :class="`badge-${mode.type}`">{{ modeLabel(mode.type) }}</span>
                                         <div class="mode-item-actions" @click.stop>
-                                            <button class="icon-btn" @click="moveModeUp(i)" :disabled="i === 0" title="Move up">&uarr;</button>
-                                            <button class="icon-btn" @click="moveModeDown(i)" :disabled="i === modes.length - 1" title="Move down">&darr;</button>
                                             <button class="icon-btn" @click="openEditMode(mode)" title="Edit">&#9998;</button>
+                                            <button class="icon-btn" @click="duplicateMode(mode)" title="Duplicate">&#10697;</button>
                                             <button class="icon-btn btn-danger" @click="handleDeleteMode(mode)" title="Delete">&times;</button>
                                         </div>
                                     </div>
@@ -573,13 +634,16 @@ function modeLabel(type: string) {
                     <option value="gradient">Gradient</option>
                     <option value="gradient_aggressive">Gradient Aggressive</option>
                     <option value="buildup">Buildup</option>
+                    <option value="drop">Drop</option>
+                    <option value="after_drop">After Drop</option>
                     <option value="spotlights">Spotlights</option>
+                    <option value="vivid">Vivid</option>
                     <option value="text">Text</option>
                 </select>
             </SyvoraFormField>
 
-            <!-- Shared: gradient colors (not for spotlights) -->
-            <div v-if="modeType !== 'spotlights'" class="config-section">
+            <!-- Shared: gradient colors (only for gradient/buildup/text modes) -->
+            <div v-if="modeType !== 'spotlights' && modeType !== 'drop' && modeType !== 'after_drop' && modeType !== 'vivid'" class="config-section">
                 <h3 class="config-section-title">Colors</h3>
                 <div class="color-list">
                     <div v-for="(color, i) in (modeConfig as any).colors" :key="i" class="color-entry">
@@ -590,8 +654,8 @@ function modeLabel(type: string) {
                 </div>
             </div>
 
-            <!-- Shared: gradient speed & angle (not for spotlights) -->
-            <div v-if="modeType !== 'spotlights'" class="config-row">
+            <!-- Shared: gradient speed & angle (only for gradient/buildup/text modes) -->
+            <div v-if="modeType !== 'spotlights' && modeType !== 'drop' && modeType !== 'after_drop' && modeType !== 'vivid'" class="config-row">
                 <SyvoraFormField label="Speed" for="grad-speed">
                     <input id="grad-speed" type="range" min="0.1" max="2" step="0.1"
                         v-model.number="(modeConfig as any).gradient_speed" class="range-input" />
@@ -857,6 +921,300 @@ function modeLabel(type: string) {
                         </div>
                     </template>
                 </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Side Lines</h3>
+                    <div class="config-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" v-model="textConfig.side_lines.enabled" />
+                            <span>Enable</span>
+                        </label>
+                    </div>
+                    <template v-if="textConfig.side_lines.enabled">
+                        <div class="config-row">
+                            <SyvoraFormField label="Color" for="tl-color">
+                                <input id="tl-color" type="color" v-model="textConfig.side_lines.color" class="color-input" />
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Animation" for="tl-anim">
+                                <select id="tl-anim" v-model="textConfig.side_lines.animation" class="native-select">
+                                    <option value="pulse">Pulse</option>
+                                    <option value="upbeam">Up-Beam</option>
+                                </select>
+                            </SyvoraFormField>
+                        </div>
+                        <div class="config-row">
+                            <SyvoraFormField label="Width" for="tl-width">
+                                <input id="tl-width" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="textConfig.side_lines.width" class="range-input" />
+                                <span class="range-value">{{ textConfig.side_lines.width }}</span>
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Brightness" for="tl-bright">
+                                <input id="tl-bright" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="textConfig.side_lines.brightness" class="range-input" />
+                                <span class="range-value">{{ textConfig.side_lines.brightness }}</span>
+                            </SyvoraFormField>
+                        </div>
+                        <div class="config-row">
+                            <SyvoraFormField v-if="textConfig.side_lines.animation === 'pulse'" label="Pulse Speed" for="tl-pulse">
+                                <input id="tl-pulse" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="textConfig.side_lines.pulse_speed" class="range-input" />
+                                <span class="range-value">{{ textConfig.side_lines.pulse_speed }}</span>
+                            </SyvoraFormField>
+                            <SyvoraFormField v-if="textConfig.side_lines.animation === 'upbeam'" label="Beam Speed" for="tl-beam">
+                                <input id="tl-beam" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="textConfig.side_lines.beam_speed" class="range-input" />
+                                <span class="range-value">{{ textConfig.side_lines.beam_speed }}</span>
+                            </SyvoraFormField>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Drop mode config -->
+            <template v-if="modeType === 'drop'">
+                <div class="config-section">
+                    <h3 class="config-section-title">Colors</h3>
+                    <div class="color-list">
+                        <div v-for="(color, i) in dropConfig.colors" :key="i" class="color-entry">
+                            <input type="color" :value="color" @input="dropConfig.colors[Number(i)] = ($event.target as HTMLInputElement).value" class="color-input" />
+                            <button v-if="dropConfig.colors.length > 1" class="icon-btn btn-danger" @click="dropConfig.colors.splice(Number(i), 1)">&times;</button>
+                        </div>
+                        <button class="add-color-btn" @click="dropConfig.colors.push('#ffffff')">+ Add Color</button>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Energy</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Speed" for="drop-speed">
+                            <input id="drop-speed" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="dropConfig.speed" class="range-input" />
+                            <span class="range-value">{{ dropConfig.speed }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Energy" for="drop-energy">
+                            <input id="drop-energy" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="dropConfig.energy" class="range-input" />
+                            <span class="range-value">{{ dropConfig.energy }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Shape</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Type" for="drop-shape-type">
+                            <select id="drop-shape-type" v-model="dropConfig.shape_type" class="native-select">
+                                <option value="circle">Circle</option>
+                                <option value="square">Square</option>
+                                <option value="triangle">Triangle</option>
+                            </select>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Size" for="drop-size">
+                            <input id="drop-size" type="range" min="0.2" max="1" step="0.1"
+                                v-model.number="dropConfig.shape_size" class="range-input" />
+                            <span class="range-value">{{ dropConfig.shape_size }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Strobes</h3>
+                    <div class="config-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" v-model="dropConfig.strobes_enabled" />
+                            <span>Enable Strobes</span>
+                        </label>
+                    </div>
+                    <div v-if="dropConfig.strobes_enabled" class="config-row">
+                        <SyvoraFormField label="Rate" for="drop-strobe-rate">
+                            <input id="drop-strobe-rate" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="dropConfig.strobe_rate" class="range-input" />
+                            <span class="range-value">{{ dropConfig.strobe_rate }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Intensity" for="drop-strobe-int">
+                            <input id="drop-strobe-int" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="dropConfig.strobe_intensity" class="range-input" />
+                            <span class="range-value">{{ dropConfig.strobe_intensity }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+            </template>
+
+            <!-- After Drop mode config -->
+            <template v-if="modeType === 'after_drop'">
+                <div class="config-section">
+                    <h3 class="config-section-title">Colors</h3>
+                    <div class="color-list">
+                        <div v-for="(color, i) in afterDropConfig.colors" :key="i" class="color-entry">
+                            <input type="color" :value="color" @input="afterDropConfig.colors[Number(i)] = ($event.target as HTMLInputElement).value" class="color-input" />
+                            <button v-if="afterDropConfig.colors.length > 1" class="icon-btn btn-danger" @click="afterDropConfig.colors.splice(Number(i), 1)">&times;</button>
+                        </div>
+                        <button class="add-color-btn" @click="afterDropConfig.colors.push('#ffffff')">+ Add Color</button>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Energy</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Speed" for="ad-speed">
+                            <input id="ad-speed" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="afterDropConfig.speed" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.speed }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Energy" for="ad-energy">
+                            <input id="ad-energy" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="afterDropConfig.energy" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.energy }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Shape</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Type" for="ad-shape-type">
+                            <select id="ad-shape-type" v-model="afterDropConfig.shape_type" class="native-select">
+                                <option value="circle">Circle</option>
+                                <option value="square">Square</option>
+                                <option value="triangle">Triangle</option>
+                            </select>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Size" for="ad-size">
+                            <input id="ad-size" type="range" min="0.2" max="1" step="0.1"
+                                v-model.number="afterDropConfig.shape_size" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.shape_size }}</span>
+                        </SyvoraFormField>
+                    </div>
+                    <div class="config-row">
+                        <SyvoraFormField label="Stretch" for="ad-stretch">
+                            <input id="ad-stretch" type="range" min="0" max="1" step="0.1"
+                                v-model.number="afterDropConfig.stretch" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.stretch }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Stretch Speed" for="ad-stretch-speed">
+                            <input id="ad-stretch-speed" type="range" min="0.1" max="2" step="0.1"
+                                v-model.number="afterDropConfig.stretch_speed" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.stretch_speed }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Strobes</h3>
+                    <div class="config-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" v-model="afterDropConfig.strobes_enabled" />
+                            <span>Enable Strobes</span>
+                        </label>
+                    </div>
+                    <div v-if="afterDropConfig.strobes_enabled" class="config-row">
+                        <SyvoraFormField label="Rate" for="ad-strobe-rate">
+                            <input id="ad-strobe-rate" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="afterDropConfig.strobe_rate" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.strobe_rate }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Intensity" for="ad-strobe-int">
+                            <input id="ad-strobe-int" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="afterDropConfig.strobe_intensity" class="range-input" />
+                            <span class="range-value">{{ afterDropConfig.strobe_intensity }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Vivid mode config -->
+            <template v-if="modeType === 'vivid'">
+                <div class="config-section">
+                    <h3 class="config-section-title">Colors</h3>
+                    <div class="color-list">
+                        <div v-for="(color, i) in vividConfig.colors" :key="i" class="color-entry">
+                            <input type="color" :value="color" @input="vividConfig.colors[Number(i)] = ($event.target as HTMLInputElement).value" class="color-input" />
+                            <button v-if="vividConfig.colors.length > 1" class="icon-btn btn-danger" @click="vividConfig.colors.splice(Number(i), 1)">&times;</button>
+                        </div>
+                        <button class="add-color-btn" @click="vividConfig.colors.push('#ff00aa')">+ Add Color</button>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Mesh</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Speed" for="viv-speed">
+                            <input id="viv-speed" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="vividConfig.speed" class="range-input" />
+                            <span class="range-value">{{ vividConfig.speed }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Morph Scale" for="viv-morph">
+                            <input id="viv-morph" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="vividConfig.morph_scale" class="range-input" />
+                            <span class="range-value">{{ vividConfig.morph_scale }}</span>
+                        </SyvoraFormField>
+                    </div>
+                    <div class="config-row">
+                        <SyvoraFormField label="Depth" for="viv-depth">
+                            <input id="viv-depth" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="vividConfig.depth" class="range-input" />
+                            <span class="range-value">{{ vividConfig.depth }}</span>
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Bloom" for="viv-bloom">
+                            <input id="viv-bloom" type="range" min="0" max="1" step="0.1"
+                                v-model.number="vividConfig.bloom" class="range-input" />
+                            <span class="range-value">{{ vividConfig.bloom }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Hotspot</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Color" for="viv-hot-color">
+                            <input id="viv-hot-color" type="color" v-model="vividConfig.hotspot_color" class="color-input" />
+                        </SyvoraFormField>
+                        <SyvoraFormField label="Size" for="viv-hot-size">
+                            <input id="viv-hot-size" type="range" min="0.1" max="0.8" step="0.05"
+                                v-model.number="vividConfig.hotspot_size" class="range-input" />
+                            <span class="range-value">{{ vividConfig.hotspot_size }}</span>
+                        </SyvoraFormField>
+                    </div>
+                    <div class="config-row">
+                        <SyvoraFormField label="Intensity" for="viv-hot-int">
+                            <input id="viv-hot-int" type="range" min="0.1" max="1" step="0.1"
+                                v-model.number="vividConfig.hotspot_intensity" class="range-input" />
+                            <span class="range-value">{{ vividConfig.hotspot_intensity }}</span>
+                        </SyvoraFormField>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Digital Strobe</h3>
+                    <div class="config-toggles">
+                        <label class="toggle-item">
+                            <input type="checkbox" v-model="vividConfig.strobe_enabled" />
+                            <span>Enable</span>
+                        </label>
+                    </div>
+                    <template v-if="vividConfig.strobe_enabled">
+                        <div class="config-row">
+                            <SyvoraFormField label="Frequency" for="viv-strobe-freq">
+                                <input id="viv-strobe-freq" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="vividConfig.strobe_frequency" class="range-input" />
+                                <span class="range-value">{{ vividConfig.strobe_frequency }}</span>
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Intensity" for="viv-strobe-int">
+                                <input id="viv-strobe-int" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="vividConfig.strobe_intensity" class="range-input" />
+                                <span class="range-value">{{ vividConfig.strobe_intensity }}</span>
+                            </SyvoraFormField>
+                        </div>
+                        <div class="config-row">
+                            <SyvoraFormField label="Shape" for="viv-strobe-shape">
+                                <select id="viv-strobe-shape" v-model="vividConfig.strobe_shape" class="native-select">
+                                    <option value="rectangle">Rectangle</option>
+                                    <option value="full">Full Screen</option>
+                                </select>
+                            </SyvoraFormField>
+                        </div>
+                    </template>
+                </div>
             </template>
 
             <!-- Spotlights mode config -->
@@ -917,6 +1275,77 @@ function modeLabel(type: string) {
                         </div>
                         <button class="add-color-btn" @click="spotlightsConfig.beam_colors.push('#ffffff')">+ Add Color</button>
                     </div>
+                </div>
+
+                <div class="config-section">
+                    <h3 class="config-section-title">Shape</h3>
+                    <div class="config-row">
+                        <SyvoraFormField label="Type" for="spot-shape-type">
+                            <select id="spot-shape-type" v-model="spotlightsConfig.shape.type" class="native-select">
+                                <option value="none">None</option>
+                                <option value="circle">Circle</option>
+                                <option value="square">Square</option>
+                                <option value="triangle">Triangle</option>
+                            </select>
+                        </SyvoraFormField>
+                        <SyvoraFormField v-if="spotlightsConfig.shape.type !== 'none'" label="Color" for="spot-shape-color">
+                            <input id="spot-shape-color" type="color" v-model="spotlightsConfig.shape.color" class="color-input" />
+                        </SyvoraFormField>
+                    </div>
+                    <template v-if="spotlightsConfig.shape.type !== 'none'">
+                        <div class="config-row">
+                            <SyvoraFormField label="Size" for="spot-shape-size">
+                                <input id="spot-shape-size" type="range" min="0.05" max="0.8" step="0.05"
+                                    v-model.number="spotlightsConfig.shape.size" class="range-input" />
+                                <span class="range-value">{{ spotlightsConfig.shape.size }}</span>
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Opacity" for="spot-shape-opacity">
+                                <input id="spot-shape-opacity" type="range" min="0.1" max="1" step="0.1"
+                                    v-model.number="spotlightsConfig.shape.opacity" class="range-input" />
+                                <span class="range-value">{{ spotlightsConfig.shape.opacity }}</span>
+                            </SyvoraFormField>
+                        </div>
+                        <div class="config-row">
+                            <SyvoraFormField label="Movement" for="spot-shape-move">
+                                <select id="spot-shape-move" v-model="spotlightsConfig.shape.movement_pattern" class="native-select">
+                                    <option value="drift">Drift</option>
+                                    <option value="bounce">Bounce</option>
+                                    <option value="orbit">Orbit</option>
+                                </select>
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Move Speed" for="spot-shape-speed">
+                                <input id="spot-shape-speed" type="range" min="0.1" max="2" step="0.1"
+                                    v-model.number="spotlightsConfig.shape.movement_speed" class="range-input" />
+                                <span class="range-value">{{ spotlightsConfig.shape.movement_speed }}</span>
+                            </SyvoraFormField>
+                        </div>
+                        <div class="config-toggles">
+                            <label class="toggle-item">
+                                <input type="checkbox" v-model="spotlightsConfig.shape.pulse" />
+                                <span>Pulse</span>
+                            </label>
+                            <label class="toggle-item">
+                                <input type="checkbox" v-model="spotlightsConfig.shape.flicker" />
+                                <span>Flicker</span>
+                            </label>
+                            <label class="toggle-item">
+                                <input type="checkbox" v-model="spotlightsConfig.shape.shimmer" />
+                                <span>Shimmer</span>
+                            </label>
+                        </div>
+                        <div class="config-row">
+                            <SyvoraFormField label="Stretch" for="spot-shape-stretch">
+                                <input id="spot-shape-stretch" type="range" min="0" max="1" step="0.1"
+                                    v-model.number="spotlightsConfig.shape.stretch" class="range-input" />
+                                <span class="range-value">{{ spotlightsConfig.shape.stretch }}</span>
+                            </SyvoraFormField>
+                            <SyvoraFormField label="Stretch Speed" for="spot-shape-ss">
+                                <input id="spot-shape-ss" type="range" min="0.1" max="2" step="0.1"
+                                    v-model.number="spotlightsConfig.shape.stretch_speed" class="range-input" />
+                                <span class="range-value">{{ spotlightsConfig.shape.stretch_speed }}</span>
+                            </SyvoraFormField>
+                        </div>
+                    </template>
                 </div>
             </template>
 
@@ -1090,6 +1519,28 @@ function modeLabel(type: string) {
     background: rgba(115, 195, 254, 0.06);
 }
 
+.mode-item.dragging {
+    opacity: 0.4;
+}
+
+.mode-item.drag-over {
+    border-color: var(--color-accent);
+    background: rgba(115, 195, 254, 0.08);
+}
+
+.drag-handle {
+    cursor: grab;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    padding: 0.125rem 0.25rem;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
 .mode-item-header {
     display: flex;
     align-items: center;
@@ -1116,9 +1567,24 @@ function modeLabel(type: string) {
     color: #ff4444;
 }
 
+.badge-vivid {
+    background: linear-gradient(135deg, rgba(26, 10, 62, 0.3), rgba(204, 0, 255, 0.2), rgba(255, 102, 0, 0.15));
+    color: #cc66ff;
+}
+
 .badge-spotlights {
     background: rgba(12, 26, 39, 0.12);
     color: #4a6a8a;
+}
+
+.badge-drop {
+    background: linear-gradient(135deg, rgba(255, 0, 80, 0.2), rgba(255, 200, 0, 0.2));
+    color: #ff3366;
+}
+
+.badge-after_drop {
+    background: linear-gradient(135deg, rgba(170, 0, 255, 0.2), rgba(255, 0, 80, 0.15));
+    color: #cc44ff;
 }
 
 .badge-buildup {
