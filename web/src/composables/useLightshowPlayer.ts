@@ -1,5 +1,5 @@
 import { ref, onUnmounted } from 'vue'
-import type { LightshowMode, GradientConfig, BuildupConfig, TextConfig, SpotlightsConfig } from './useLights'
+import type { LightshowMode, GradientConfig, BuildupConfig, TextConfig, SpotlightsConfig, DropConfig, AfterDropConfig } from './useLights'
 
 let matterHeavyFont: FontFace | null = null
 let fontLoaded = false
@@ -54,29 +54,41 @@ export function useLightshowPlayer() {
     let liveFlashDecay = 0              // decaying flash brightness
     let liveBuildupHolding = false      // is the operator holding the buildup key/button
     let liveBuildupVelocity = 0         // how fast buildup is rising (accelerates while held)
+    let liveBuildupMomentum = 0         // residual momentum after release — decays smoothly
+    let liveBuildupDrift = 0            // very slow continuous drift to keep visuals alive when held
+    let onDropCallback: (() => void) | null = null  // called when drop is triggered, set by the view
 
     function setLiveIntensity(v: number) { liveIntensity.value = Math.max(0, Math.min(2, v)) }
 
-    /** Start building up — hold to increase, release to freeze */
+    /** Register a callback to be called when drop is triggered (for auto-switching to drop mode) */
+    function onDrop(cb: () => void) { onDropCallback = cb }
+
+    /** Start building up — hold to increase, release to coast smoothly */
     function startBuildup() {
         if (liveBuildup.value < 0) liveBuildup.value = 0
         liveBuildupHolding = true
-        liveBuildupVelocity = 0
+        liveBuildupMomentum = 0
     }
 
-    /** Stop building — freeze at current level */
+    /** Stop building — momentum carries the buildup forward and decays gradually */
     function stopBuildup() {
+        if (liveBuildupHolding) {
+            // Transfer current velocity into momentum so it coasts smoothly
+            liveBuildupMomentum = liveBuildupVelocity
+        }
         liveBuildupHolding = false
-        liveBuildupVelocity = 0
     }
 
-    /** Trigger the drop — flash + reset buildup to 0 */
+    /** Trigger the drop — flash + reset buildup + auto-switch to drop mode */
     function triggerDrop() {
         liveFlash.value = true
         liveFlashDecay = 1
         liveBuildup.value = 0
         liveBuildupHolding = false
         liveBuildupVelocity = 0
+        liveBuildupMomentum = 0
+        liveBuildupDrift = 0
+        if (onDropCallback) onDropCallback()
     }
 
     /** Return to automatic buildup cycling */
@@ -84,6 +96,8 @@ export function useLightshowPlayer() {
         liveBuildup.value = -1
         liveBuildupHolding = false
         liveBuildupVelocity = 0
+        liveBuildupMomentum = 0
+        liveBuildupDrift = 0
     }
 
     /** Trigger a manual white flash */
@@ -94,10 +108,28 @@ export function useLightshowPlayer() {
 
     /** Update live state each frame (called from render loop) */
     function updateLiveState(dt: number) {
-        // Buildup: accelerates while held, like pressing the gas
-        if (liveBuildupHolding && liveBuildup.value >= 0) {
-            liveBuildupVelocity = Math.min(liveBuildupVelocity + dt * 0.8, 2.0)
-            liveBuildup.value = Math.min(liveBuildup.value + liveBuildupVelocity * dt, 1)
+        if (liveBuildup.value >= 0) {
+            if (liveBuildupHolding) {
+                // Actively holding: accelerate
+                liveBuildupVelocity = Math.min(liveBuildupVelocity + dt * 0.8, 2.0)
+                liveBuildup.value = Math.min(liveBuildup.value + liveBuildupVelocity * dt, 1)
+                // Track a slow drift baseline
+                liveBuildupDrift = liveBuildupVelocity * 0.04
+            } else if (liveBuildupMomentum > 0.001) {
+                // Released: momentum carries forward and decays smoothly
+                // Exponential decay feels natural — like a wheel spinning down
+                liveBuildupMomentum *= Math.pow(0.15, dt) // ~85% decay per second
+                liveBuildup.value = Math.min(liveBuildup.value + liveBuildupMomentum * dt, 1)
+                liveBuildupVelocity = liveBuildupMomentum
+            } else {
+                // Fully coasted to a stop — keep a tiny organic drift so it
+                // doesn't feel frozen. The visuals subtly breathe even when held.
+                liveBuildupMomentum = 0
+                liveBuildupVelocity = 0
+                const breathe = Math.sin(performance.now() * 0.001) * 0.002
+                liveBuildupDrift = liveBuildupDrift * 0.98 + breathe * 0.02
+                liveBuildup.value = Math.max(0, Math.min(1, liveBuildup.value + liveBuildupDrift * dt))
+            }
         }
 
         // Flash decay
@@ -228,6 +260,12 @@ export function useLightshowPlayer() {
                 break
             case 'spotlights':
                 renderSpotlights(ctx, w, h, t, config as SpotlightsConfig)
+                break
+            case 'drop':
+                renderDrop(ctx, w, h, t, config as DropConfig)
+                break
+            case 'after_drop':
+                renderAfterDrop(ctx, w, h, t, config as AfterDropConfig)
                 break
         }
 
@@ -862,18 +900,45 @@ export function useLightshowPlayer() {
         }
 
         // ── 2. Side lines — bright lines that travel upward ─────────────
-        // Sweep speed increases with progress; near peak they appear more frequently
         const baseSweepSpeed = side_lines.sweep_speed * 0.4
         const sweepSpeed = baseSweepSpeed + p * baseSweepSpeed * 2.5
-        const beamHeight = h * (0.5 + p * 0.35)
-        const beamWidth = side_lines.width * (1 + p * 0.5)
+        const beamHeight = h * (0.55 + p * 0.35)
+        const beamWidth = side_lines.width * (1.5 + p * 0.8)
 
         const rgb = hexToRgb(side_lines.color)
+        const br = side_lines.brightness
 
-        // Multiple line layers — primary + trailing for depth
+        // Persistent edge glow — always visible, pulses with progress.
+        // This anchors the lines even between sweeps.
+        const edgeGlowWidth = beamWidth * (1.5 + p * 1)
+        const edgeAlpha = br * (0.06 + p * 0.12)
+        const edgePulse = 1 + Math.sin(t * 3 + p * 4) * 0.3
+
+        const leftEdge = ctx.createLinearGradient(0, 0, edgeGlowWidth, 0)
+        leftEdge.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${edgeAlpha * edgePulse})`)
+        leftEdge.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${edgeAlpha * edgePulse * 0.3})`)
+        leftEdge.addColorStop(1, 'transparent')
+        ctx.save()
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = leftEdge
+        ctx.fillRect(0, 0, edgeGlowWidth, h)
+        ctx.restore()
+
+        const rightEdge = ctx.createLinearGradient(w, 0, w - edgeGlowWidth, 0)
+        rightEdge.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${edgeAlpha * edgePulse})`)
+        rightEdge.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${edgeAlpha * edgePulse * 0.3})`)
+        rightEdge.addColorStop(1, 'transparent')
+        ctx.save()
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = rightEdge
+        ctx.fillRect(w - edgeGlowWidth, 0, edgeGlowWidth, h)
+        ctx.restore()
+
+        // Sweeping line layers — primary, secondary, and a faint third
         const lineLayers = [
-            { offset: 0, alpha: side_lines.brightness * (0.6 + p * 0.4) },
-            { offset: 0.3, alpha: side_lines.brightness * (0.15 + p * 0.2) },
+            { offset: 0, alpha: br * (0.8 + p * 0.2) },
+            { offset: 0.35, alpha: br * (0.3 + p * 0.25) },
+            { offset: 0.65, alpha: br * (0.1 + p * 0.15) },
         ]
 
         for (const layer of lineLayers) {
@@ -883,44 +948,42 @@ export function useLightshowPlayer() {
             ctx.save()
             ctx.globalCompositeOperation = 'screen'
 
-            // Bright core line — thin, intense, white-hot center
-            const coreWidth = Math.max(beamWidth * 0.15, 2)
+            // White-hot core line
+            const coreWidth = Math.max(beamWidth * 0.2, 3)
             const coreGrad = ctx.createLinearGradient(0, yPos + beamHeight, 0, yPos)
-            const coreAlpha = layer.alpha * 1.2
+            const coreAlpha = Math.min(layer.alpha * 1.5, 1)
             coreGrad.addColorStop(0, 'transparent')
-            coreGrad.addColorStop(0.2, `rgba(255,255,255,${coreAlpha * 0.6})`)
-            coreGrad.addColorStop(0.5, `rgba(255,255,255,${coreAlpha})`)
-            coreGrad.addColorStop(0.8, `rgba(255,255,255,${coreAlpha * 0.6})`)
+            coreGrad.addColorStop(0.15, `rgba(255,255,255,${coreAlpha * 0.5})`)
+            coreGrad.addColorStop(0.4, `rgba(255,255,255,${coreAlpha})`)
+            coreGrad.addColorStop(0.6, `rgba(255,255,255,${coreAlpha})`)
+            coreGrad.addColorStop(0.85, `rgba(255,255,255,${coreAlpha * 0.5})`)
             coreGrad.addColorStop(1, 'transparent')
             ctx.fillStyle = coreGrad
-            // Left core
             ctx.fillRect(beamWidth * 0.5 - coreWidth * 0.5, yPos, coreWidth, beamHeight)
-            // Right core
             ctx.fillRect(w - beamWidth * 0.5 - coreWidth * 0.5, yPos, coreWidth, beamHeight)
 
-            // Colored glow around the core
+            // Colored glow around the core — boosted
             const glowGrad = ctx.createLinearGradient(0, yPos + beamHeight, 0, yPos)
+            const glowAlpha = Math.min(layer.alpha * 1.2, 1)
             glowGrad.addColorStop(0, 'transparent')
-            glowGrad.addColorStop(0.15, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.3})`)
-            glowGrad.addColorStop(0.5, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.7})`)
-            glowGrad.addColorStop(0.85, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.3})`)
+            glowGrad.addColorStop(0.1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowAlpha * 0.4})`)
+            glowGrad.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowAlpha})`)
+            glowGrad.addColorStop(0.6, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowAlpha})`)
+            glowGrad.addColorStop(0.9, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${glowAlpha * 0.4})`)
             glowGrad.addColorStop(1, 'transparent')
             ctx.fillStyle = glowGrad
-            // Left glow
             ctx.fillRect(0, yPos, beamWidth, beamHeight)
-            // Right glow
             ctx.fillRect(w - beamWidth, yPos, beamWidth, beamHeight)
 
-            // Wider soft halo
+            // Wider halo — boosted
             const haloGrad = ctx.createLinearGradient(0, yPos + beamHeight, 0, yPos)
             haloGrad.addColorStop(0, 'transparent')
-            haloGrad.addColorStop(0.5, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.12})`)
+            haloGrad.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.2})`)
+            haloGrad.addColorStop(0.6, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${layer.alpha * 0.2})`)
             haloGrad.addColorStop(1, 'transparent')
             ctx.fillStyle = haloGrad
-            // Left halo
-            ctx.fillRect(0, yPos, beamWidth * 2.5, beamHeight)
-            // Right halo
-            ctx.fillRect(w - beamWidth * 2.5, yPos, beamWidth * 2.5, beamHeight)
+            ctx.fillRect(0, yPos, beamWidth * 3, beamHeight)
+            ctx.fillRect(w - beamWidth * 3, yPos, beamWidth * 3, beamHeight)
 
             ctx.restore()
         }
@@ -1046,6 +1109,86 @@ export function useLightshowPlayer() {
     // ── Text rendering ──────────────────────────────────────────────────────
     function renderText(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, config: TextConfig) {
         renderGradientBase(ctx, w, h, t, config.colors, config.gradient_speed, config.gradient_angle)
+
+        // Side lines
+        const sl = config.side_lines
+        if (sl?.enabled !== false) {
+            const slRgb = hexToRgb(sl?.color || '#ffffff')
+            const slWidth = w * (0.02 + (sl?.width ?? 0.5) * 0.06)
+            const slBright = sl?.brightness ?? 0.5
+            const slAnim = sl?.animation ?? 'pulse'
+
+            if (slAnim === 'upbeam') {
+                // Up-beam: lines travel from bottom to top, like buildup but simpler
+                const beamSpd = sl?.beam_speed ?? 0.5
+                const sweepSpeed = 0.2 + beamSpd * 0.8
+                const beamH = h * 0.5
+                const slAlpha = slBright * 0.8
+
+                const layers = [
+                    { offset: 0, alpha: slAlpha },
+                    { offset: 0.4, alpha: slAlpha * 0.35 },
+                ]
+
+                for (const layer of layers) {
+                    const phase = ((t * sweepSpeed) + layer.offset) % 1
+                    const yPos = h - phase * (h + beamH)
+
+                    ctx.save()
+                    ctx.globalCompositeOperation = 'screen'
+
+                    // Colored glow
+                    const glowGrad = ctx.createLinearGradient(0, yPos + beamH, 0, yPos)
+                    glowGrad.addColorStop(0, 'transparent')
+                    glowGrad.addColorStop(0.2, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${layer.alpha * 0.4})`)
+                    glowGrad.addColorStop(0.5, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${layer.alpha})`)
+                    glowGrad.addColorStop(0.8, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${layer.alpha * 0.4})`)
+                    glowGrad.addColorStop(1, 'transparent')
+                    ctx.fillStyle = glowGrad
+                    ctx.fillRect(0, yPos, slWidth, beamH)
+                    ctx.fillRect(w - slWidth, yPos, slWidth, beamH)
+
+                    // White core
+                    const coreW = Math.max(slWidth * 0.2, 2)
+                    const coreGrad = ctx.createLinearGradient(0, yPos + beamH, 0, yPos)
+                    coreGrad.addColorStop(0, 'transparent')
+                    coreGrad.addColorStop(0.3, `rgba(255,255,255,${layer.alpha * 0.5})`)
+                    coreGrad.addColorStop(0.5, `rgba(255,255,255,${layer.alpha * 0.9})`)
+                    coreGrad.addColorStop(0.7, `rgba(255,255,255,${layer.alpha * 0.5})`)
+                    coreGrad.addColorStop(1, 'transparent')
+                    ctx.fillStyle = coreGrad
+                    ctx.fillRect(slWidth * 0.5 - coreW * 0.5, yPos, coreW, beamH)
+                    ctx.fillRect(w - slWidth * 0.5 - coreW * 0.5, yPos, coreW, beamH)
+
+                    ctx.restore()
+                }
+            } else {
+                // Pulse: static glow that pulses in brightness
+                const slPulseSpd = sl?.pulse_speed ?? 0.5
+                const slPulse = 0.7 + Math.sin(t * (0.5 + slPulseSpd * 2.5)) * 0.3
+                const slAlpha = slBright * 0.8 * slPulse
+
+                const leftGrad = ctx.createLinearGradient(0, 0, slWidth * 2.5, 0)
+                leftGrad.addColorStop(0, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${slAlpha})`)
+                leftGrad.addColorStop(0.3, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${slAlpha * 0.4})`)
+                leftGrad.addColorStop(1, 'transparent')
+                ctx.save()
+                ctx.globalCompositeOperation = 'screen'
+                ctx.fillStyle = leftGrad
+                ctx.fillRect(0, 0, slWidth * 2.5, h)
+                ctx.restore()
+
+                const rightGrad = ctx.createLinearGradient(w, 0, w - slWidth * 2.5, 0)
+                rightGrad.addColorStop(0, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${slAlpha})`)
+                rightGrad.addColorStop(0.3, `rgba(${slRgb[0]},${slRgb[1]},${slRgb[2]},${slAlpha * 0.4})`)
+                rightGrad.addColorStop(1, 'transparent')
+                ctx.save()
+                ctx.globalCompositeOperation = 'screen'
+                ctx.fillStyle = rightGrad
+                ctx.fillRect(w - slWidth * 2.5, 0, slWidth * 2.5, h)
+                ctx.restore()
+            }
+        }
 
         const { text } = config
         if (!text.content) return
@@ -1331,6 +1474,11 @@ export function useLightshowPlayer() {
         ctx.fillStyle = `rgb(${bg[0]},${bg[1]},${bg[2]})`
         ctx.fillRect(0, 0, w, h)
 
+        // Background shape (behind the beams)
+        if (config.shape?.type && config.shape.type !== 'none') {
+            renderShape(ctx, w, h, t, config.shape, config.beam_colors || [])
+        }
+
         const count = config.beam_count || 4
         const validColors = (config.beam_colors || []).filter(c => c && c.length >= 4)
         const rgbColors = validColors.length > 0 ? validColors.map(hexToRgb) : [[255, 255, 255] as [number, number, number]]
@@ -1442,6 +1590,260 @@ export function useLightshowPlayer() {
         ctx.restore()
     }
 
+    // ── Drop rendering ─────────────────────────────────────────────────────
+    // Maximum energy: fast-moving shapes flash across the screen with strobes,
+    // rapid color changes, and intense visual chaos. This is the payoff after
+    // the buildup — pure release.
+
+    function renderDrop(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, config: DropConfig) {
+        const validColors = (config.colors || []).filter(c => c && c.length >= 4)
+        const rgbPalette = validColors.length > 0 ? validColors.map(hexToRgb) : [[255, 0, 100] as [number, number, number]]
+        const speed = config.speed || 0.7
+        const energy = config.energy || 0.8
+        const shapeType = config.shape_type || 'circle'
+        const shapeSize = config.shape_size || 0.6
+
+        // ── Gradient background that cycles through colors fast ──────────
+        renderGradientBase(ctx, w, h, t, config.colors, speed * 2, t * 30)
+
+        // Energy pulse — background flashes brighter on the beat
+        const beatRate = speed * 6
+        const beat = Math.pow(Math.max(0, Math.sin(t * beatRate)), 4) * energy
+        if (beat > 0.01) {
+            ctx.save()
+            ctx.globalAlpha = beat * 0.2
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(0, 0, w, h)
+            ctx.restore()
+        }
+
+        // ── One big central shape that flashes and pulses ────────────────
+        const cx = w / 2
+        const cy = h / 2
+        const baseS = Math.min(w, h) * shapeSize
+
+        // Size pulses hard with the beat
+        const sizePulse = 1 + beat * 0.5 + Math.sin(t * speed * 4) * 0.15
+        const s = baseS * sizePulse
+
+        // Color cycles through palette rapidly
+        const shapeColor = samplePalette(rgbPalette, t * speed * 1.5)
+        const colorStr = `rgb(${shapeColor[0]},${shapeColor[1]},${shapeColor[2]})`
+
+        // The shape flashes between its color and white on the beat
+        const whiteness = beat * 0.7
+        const flashedColor = lerpColor(shapeColor, [255, 255, 255], whiteness)
+        const flashedStr = `rgb(${flashedColor[0]},${flashedColor[1]},${flashedColor[2]})`
+
+        // Outer glow — large, soft, colored
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.globalAlpha = (0.15 + energy * 0.15 + beat * 0.2)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = colorStr
+        ctx.shadowColor = colorStr
+        ctx.shadowBlur = s * 0.8
+        drawShapePath(ctx, shapeType, s * 2.2)
+        ctx.fill()
+        ctx.restore()
+
+        // Mid layer
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.globalAlpha = (0.25 + energy * 0.2 + beat * 0.3)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = flashedStr
+        ctx.shadowColor = flashedStr
+        ctx.shadowBlur = s * 0.4
+        drawShapePath(ctx, shapeType, s * 1.4)
+        ctx.fill()
+        ctx.restore()
+
+        // Core — bright, sharp
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.globalAlpha = (0.4 + energy * 0.3 + beat * 0.3)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = flashedStr
+        ctx.shadowColor = '#fff'
+        ctx.shadowBlur = s * 0.2
+        drawShapePath(ctx, shapeType, s)
+        ctx.fill()
+        ctx.restore()
+
+        // White flash on beat peaks
+        if (beat > 0.3) {
+            const flashAlpha = (beat - 0.3) / 0.7 * energy * 0.7
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.globalAlpha = flashAlpha
+            ctx.globalCompositeOperation = 'screen'
+            ctx.fillStyle = '#fff'
+            ctx.shadowColor = '#fff'
+            ctx.shadowBlur = s * 0.6
+            drawShapePath(ctx, shapeType, s * 0.9)
+            ctx.fill()
+            ctx.restore()
+        }
+
+        // ── Optional strobes ─────────────────────────────────────────────
+        if (config.strobes_enabled) {
+            const strobeRate = config.strobe_rate || 0.6
+            const strobeIntensity = config.strobe_intensity || 0.7
+            const strobeFreq = 4 + strobeRate * 12
+            const strobe = Math.sin(t * strobeFreq * Math.PI * 2)
+            const threshold = 0.7 - strobeIntensity * 0.3
+            if (strobe > threshold) {
+                const flashAlpha = (strobe - threshold) / (1 - threshold) * strobeIntensity * 0.4
+                ctx.save()
+                ctx.globalAlpha = flashAlpha
+                ctx.fillStyle = '#fff'
+                ctx.fillRect(0, 0, w, h)
+                ctx.restore()
+            }
+        }
+
+        // Vignette
+        const vGrad = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.max(w, h) * 0.7)
+        vGrad.addColorStop(0, 'transparent')
+        vGrad.addColorStop(1, 'rgba(0,0,0,0.25)')
+        ctx.save()
+        ctx.fillStyle = vGrad
+        ctx.fillRect(0, 0, w, h)
+        ctx.restore()
+    }
+
+    // ── After-Drop rendering ───────────────────────────────────────────────
+    // Same energy as Drop but the shape stretches instead of pulsing —
+    // wing-like horizontal elongation driven by configurable stretch params.
+
+    function renderAfterDrop(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, config: AfterDropConfig) {
+        const validColors = (config.colors || []).filter(c => c && c.length >= 4)
+        const rgbPalette = validColors.length > 0 ? validColors.map(hexToRgb) : [[255, 0, 100] as [number, number, number]]
+        const speed = config.speed || 0.7
+        const energy = config.energy || 0.8
+        const shapeType = config.shape_type || 'circle'
+        const shapeSize = config.shape_size || 0.6
+        const stretchAmount = config.stretch ?? 0.6
+        const stretchSpd = config.stretch_speed ?? 0.7
+
+        // Gradient background — same as drop
+        renderGradientBase(ctx, w, h, t, config.colors, speed * 2, t * 30)
+
+        // Energy pulse on beat
+        const beatRate = speed * 6
+        const beat = Math.pow(Math.max(0, Math.sin(t * beatRate)), 4) * energy
+        if (beat > 0.01) {
+            ctx.save()
+            ctx.globalAlpha = beat * 0.2
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(0, 0, w, h)
+            ctx.restore()
+        }
+
+        // ── Central shape with stretch instead of pulse ──────────────────
+        const cx = w / 2
+        const cy = h / 2
+        const s = Math.min(w, h) * shapeSize
+
+        // Stretch: same system as gradient mode shapes
+        let stretchX = 1
+        let stretchY = 1
+        if (stretchAmount > 0) {
+            const stretchWave = easeInOutSine((Math.sin(t * stretchSpd * 3) + 1) / 2)
+            stretchX = 1 + stretchAmount * stretchWave * 1.2
+            stretchY = 1 - stretchAmount * stretchWave * 0.3
+        }
+
+        // Color cycles through palette
+        const shapeColor = samplePalette(rgbPalette, t * speed * 1.5)
+        const whiteness = beat * 0.5
+        const flashedColor = lerpColor(shapeColor, [255, 255, 255], whiteness)
+        const colorStr = `rgb(${shapeColor[0]},${shapeColor[1]},${shapeColor[2]})`
+        const flashedStr = `rgb(${flashedColor[0]},${flashedColor[1]},${flashedColor[2]})`
+
+        // Outer glow
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.scale(stretchX, stretchY)
+        ctx.globalAlpha = (0.15 + energy * 0.15 + beat * 0.15)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = colorStr
+        ctx.shadowColor = colorStr
+        ctx.shadowBlur = s * 0.8
+        drawShapePath(ctx, shapeType, s * 2.2)
+        ctx.fill()
+        ctx.restore()
+
+        // Mid layer
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.scale(stretchX, stretchY)
+        ctx.globalAlpha = (0.25 + energy * 0.2 + beat * 0.2)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = flashedStr
+        ctx.shadowColor = flashedStr
+        ctx.shadowBlur = s * 0.4
+        drawShapePath(ctx, shapeType, s * 1.4)
+        ctx.fill()
+        ctx.restore()
+
+        // Core
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.scale(stretchX, stretchY)
+        ctx.globalAlpha = (0.4 + energy * 0.3 + beat * 0.2)
+        ctx.globalCompositeOperation = 'screen'
+        ctx.fillStyle = flashedStr
+        ctx.shadowColor = '#fff'
+        ctx.shadowBlur = s * 0.2
+        drawShapePath(ctx, shapeType, s)
+        ctx.fill()
+        ctx.restore()
+
+        // White flash on beat peaks
+        if (beat > 0.3) {
+            const flashAlpha = (beat - 0.3) / 0.7 * energy * 0.5
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.scale(stretchX, stretchY)
+            ctx.globalAlpha = flashAlpha
+            ctx.globalCompositeOperation = 'screen'
+            ctx.fillStyle = '#fff'
+            ctx.shadowColor = '#fff'
+            ctx.shadowBlur = s * 0.6
+            drawShapePath(ctx, shapeType, s * 0.9)
+            ctx.fill()
+            ctx.restore()
+        }
+
+        // Optional strobes
+        if (config.strobes_enabled) {
+            const strobeRate = config.strobe_rate || 0.6
+            const strobeIntensity = config.strobe_intensity || 0.7
+            const strobeFreq = 4 + strobeRate * 12
+            const strobe = Math.sin(t * strobeFreq * Math.PI * 2)
+            const threshold = 0.7 - strobeIntensity * 0.3
+            if (strobe > threshold) {
+                const flashAlpha = (strobe - threshold) / (1 - threshold) * strobeIntensity * 0.4
+                ctx.save()
+                ctx.globalAlpha = flashAlpha
+                ctx.fillStyle = '#fff'
+                ctx.fillRect(0, 0, w, h)
+                ctx.restore()
+            }
+        }
+
+        // Vignette
+        const vGrad = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.max(w, h) * 0.7)
+        vGrad.addColorStop(0, 'transparent')
+        vGrad.addColorStop(1, 'rgba(0,0,0,0.25)')
+        ctx.save()
+        ctx.fillStyle = vGrad
+        ctx.fillRect(0, 0, w, h)
+        ctx.restore()
+    }
+
     // ── Cleanup ─────────────────────────────────────────────────────────────
     onUnmounted(() => {
         stopRendering()
@@ -1467,5 +1869,6 @@ export function useLightshowPlayer() {
         triggerDrop,
         resetBuildup,
         triggerFlash,
+        onDrop,
     }
 }

@@ -15,7 +15,7 @@ export interface Lightshow {
     updater_name: string | null
 }
 
-export type LightshowModeType = 'gradient' | 'gradient_aggressive' | 'buildup' | 'text' | 'spotlights'
+export type LightshowModeType = 'gradient' | 'gradient_aggressive' | 'buildup' | 'drop' | 'after_drop' | 'text' | 'spotlights'
 
 export interface GradientShapeConfig {
     type: 'circle' | 'square' | 'triangle' | 'none'
@@ -83,6 +83,15 @@ export interface TextConfig {
         flicker_intensity: number
         flicker_color_shift: number
     }
+    side_lines: {
+        enabled: boolean
+        color: string
+        width: number
+        brightness: number
+        animation: 'pulse' | 'upbeam'
+        pulse_speed: number
+        beam_speed: number
+    }
 }
 
 export interface SpotlightsConfig {
@@ -94,9 +103,26 @@ export interface SpotlightsConfig {
     beam_brightness: number
     beam_spread: number
     haze: number
+    shape: GradientShapeConfig
 }
 
-export type ModeConfig = GradientConfig | BuildupConfig | TextConfig | SpotlightsConfig
+export interface DropConfig {
+    colors: string[]
+    speed: number
+    strobes_enabled: boolean
+    strobe_rate: number
+    strobe_intensity: number
+    shape_type: 'circle' | 'square' | 'triangle'
+    shape_size: number
+    energy: number
+}
+
+export interface AfterDropConfig extends DropConfig {
+    stretch: number
+    stretch_speed: number
+}
+
+export type ModeConfig = GradientConfig | BuildupConfig | TextConfig | SpotlightsConfig | DropConfig | AfterDropConfig
 // gradient_aggressive uses the same GradientConfig — just rendered differently
 
 export interface LightshowMode {
@@ -178,6 +204,15 @@ export function getDefaultTextConfig(): TextConfig {
             flicker_intensity: 0.7,
             flicker_color_shift: 0.3,
         },
+        side_lines: {
+            enabled: true,
+            color: '#ffffff',
+            width: 0.5,
+            brightness: 0.5,
+            animation: 'pulse',
+            pulse_speed: 0.5,
+            beam_speed: 0.5,
+        },
     }
 }
 
@@ -214,6 +249,42 @@ export function getDefaultSpotlightsConfig(): SpotlightsConfig {
         beam_brightness: 0.8,
         beam_spread: 0.6,
         haze: 0.5,
+        shape: {
+            type: 'none',
+            size: 0.3,
+            color: '#ffffff',
+            opacity: 0.6,
+            movement_speed: 0.4,
+            movement_pattern: 'drift',
+            flicker: false,
+            flicker_intensity: 0.5,
+            shimmer: false,
+            pulse: true,
+            pulse_speed: 0.3,
+            stretch: 0,
+            stretch_speed: 0.5,
+        },
+    }
+}
+
+export function getDefaultDropConfig(): DropConfig {
+    return {
+        colors: ['#ff0055', '#00ffaa', '#ffdd00', '#aa00ff', '#00aaff'],
+        speed: 0.7,
+        strobes_enabled: true,
+        strobe_rate: 0.6,
+        strobe_intensity: 0.7,
+        shape_type: 'circle',
+        shape_size: 0.6,
+        energy: 0.8,
+    }
+}
+
+export function getDefaultAfterDropConfig(): AfterDropConfig {
+    return {
+        ...getDefaultDropConfig(),
+        stretch: 0.6,
+        stretch_speed: 0.7,
     }
 }
 
@@ -222,6 +293,8 @@ export function getDefaultConfigForType(type: LightshowModeType): ModeConfig {
         case 'gradient': return getDefaultGradientConfig()
         case 'gradient_aggressive': return getDefaultGradientAggressiveConfig()
         case 'buildup': return getDefaultBuildupConfig()
+        case 'drop': return getDefaultDropConfig()
+        case 'after_drop': return getDefaultAfterDropConfig()
         case 'text': return getDefaultTextConfig()
         case 'spotlights': return getDefaultSpotlightsConfig()
     }
