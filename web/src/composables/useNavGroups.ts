@@ -23,6 +23,12 @@ const GROUP_DEFS: { label: string; items: { route: string; label: string; keywor
         ],
     },
     {
+        label: 'Live',
+        items: [
+            { route: 'lights', label: 'Lights', keywords: ['lights', 'lightshow', 'visuals', 'beamer', 'led', 'strobe'] },
+        ],
+    },
+    {
         label: 'Operations',
         items: [
             { route: 'events', label: 'Events', keywords: ['event', 'concert', 'show', 'gig'] },
