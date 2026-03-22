@@ -7,6 +7,7 @@ import {
     type GradientConfig, type BuildupConfig, type TextConfig, type SpotlightsConfig, type DropConfig, type AfterDropConfig, type VividConfig, type ModeConfig,
 } from '../composables/useLights'
 import { useLightshowPlayer } from '../composables/useLightshowPlayer'
+import { exportLightshowPdf } from '../composables/useLightshowExport'
 import {
     SyvoraCard, SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState, useIsMobile,
@@ -456,6 +457,7 @@ function modeLabel(type: string) {
                         <p v-if="selectedLightshow.description" class="page-subtitle">{{ selectedLightshow.description }}</p>
                     </div>
                     <div class="header-actions">
+                        <SyvoraButton variant="ghost" @click="exportLightshowPdf(selectedLightshow, modes)">Export PDF</SyvoraButton>
                         <SyvoraButton variant="ghost" @click="openCreateMode">+ Add Mode</SyvoraButton>
                         <SyvoraButton :disabled="!selectedMode" @click="launchFullscreen">Fullscreen</SyvoraButton>
                     </div>
