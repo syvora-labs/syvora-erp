@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useReleases, type Release, type ReleaseType, type Track } from '../composables/useReleases'
+import { useMandator } from '../composables/useMandator'
+import { useArtists } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState
@@ -11,6 +14,10 @@ const {
     releases, loading, fetchReleases, createRelease, updateRelease, deleteRelease,
     uploadArtwork, addTrack, deleteTrack, uploadTrack, reorderTrack,
 } = useReleases()
+
+const router = useRouter()
+const { contractsEnabled } = useMandator()
+const { artists: allArtists, fetchArtists: fetchAllArtists } = useArtists()
 
 // ── Modal state ──────────────────────────────────────────────────────────────
 const showModal = ref(false)
@@ -156,7 +163,28 @@ function closePlayer() {
 }
 
 // ── Modal actions ─────────────────────────────────────────────────────────────
-onMounted(fetchReleases)
+onMounted(() => {
+    fetchReleases()
+    fetchAllArtists()
+})
+
+function resolveArtistId(release: Release): string | null {
+    const match = allArtists.value.find(
+        a => a.name.toLowerCase() === release.artist.toLowerCase()
+    )
+    return match?.id ?? null
+}
+
+function createContractFromRelease(release: Release) {
+    const artistId = resolveArtistId(release)
+    const query: Record<string, string> = {
+        releaseId: release.id,
+        releaseTitle: release.title,
+        releaseArtist: release.artist,
+    }
+    if (artistId) query.artistId = artistId
+    router.push({ path: '/contracts', query })
+}
 
 function openCreate() {
     editingRelease.value = null
@@ -409,6 +437,7 @@ function formatAuditDate(d: string) {
                     </div>
 
                     <div class="release-actions">
+                        <SyvoraButton v-if="contractsEnabled" variant="ghost" size="sm" @click.stop="createContractFromRelease(release)">Contract</SyvoraButton>
                         <SyvoraButton variant="ghost" size="sm" @click.stop="openEdit(release)">Edit</SyvoraButton>
                         <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(release)">Delete</SyvoraButton>
                     </div>
