@@ -7,6 +7,7 @@ import { useContracts } from '../composables/useContracts'
 marked.setOptions({ breaks: true, gfm: true })
 import { useArtists } from '../composables/useArtists'
 import { useReleases } from '../composables/useReleases'
+import { useMandator } from '../composables/useMandator'
 import type { Contract, ContractSignatory, ContractSignature } from '../composables/useContracts'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
@@ -23,7 +24,7 @@ const {
 } = useContracts()
 const { artists, fetchArtists } = useArtists()
 const { releases, fetchReleases } = useReleases()
-// mandator composable used indirectly via useContracts
+const { mandator } = useMandator()
 
 // Modal state
 const showModal = ref(false)
@@ -247,6 +248,43 @@ function renderMarkdown(content: string): string {
     return marked.parse(content) as string
 }
 
+function resolvePreview(c: Contract): string {
+    // For non-draft contracts, body_snapshot is already resolved
+    if (c.status !== 'draft') return c.body_snapshot
+
+    // For drafts, resolve placeholders client-side for preview
+    const artist = artists.value.find(a => a.id === c.artist_id)
+    const release = c.release_id ? releases.value.find(r => r.id === c.release_id) : null
+    const template = c.template_id ? templates.value.find(t => t.id === c.template_id) : null
+    const body = c.body_snapshot || template?.body || ''
+
+    const replacements: Record<string, string> = {
+        '{{label_name}}': mandator.value?.name ?? '',
+        '{{label_address}}': (mandator.value as any)?.label_address ?? '',
+        '{{label_uid}}': (mandator.value as any)?.label_uid ?? '',
+        '{{artist_name}}': artist?.name ?? '',
+        '{{artist_address}}': artist?.address ?? '',
+        '{{artist_dob}}': artist?.date_of_birth ?? '',
+        '{{contract_date}}': '[Date of final signature]',
+        '{{effective_date}}': c.effective_date ?? '',
+        '{{territory}}': c.territory ?? '',
+        '{{term}}': c.term ?? '',
+        '{{exclusivity}}': c.exclusivity ?? '',
+        '{{royalty_rate}}': c.royalty_rate ?? '',
+        '{{advance}}': c.advance ?? '',
+        '{{release_title}}': release?.title ?? '',
+        '{{release_type}}': release?.type ?? '',
+        '{{jurisdiction_canton}}': template?.jurisdiction_canton ?? 'Zurich',
+        '{{governing_law}}': template?.governing_law ?? 'Swiss law (Obligationenrecht, SR 220)',
+    }
+
+    let resolved = body
+    for (const [key, val] of Object.entries(replacements)) {
+        resolved = resolved.replaceAll(key, val)
+    }
+    return resolved
+}
+
 function formatDate(d: string | null): string {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -332,7 +370,7 @@ onMounted(async () => {
                 <div v-if="expandedContractId === c.id" class="contract-detail">
                     <div class="detail-body">
                         <h4>Contract Body</h4>
-                        <div class="body-text markdown-body" v-html="renderMarkdown(c.body_snapshot)"></div>
+                        <div class="body-text markdown-body" v-html="renderMarkdown(resolvePreview(c))"></div>
                     </div>
                     <div class="detail-signatories">
                         <h4>Signatories</h4>
