@@ -34,13 +34,6 @@ const currentTier = computed(() => {
     return Math.min(...unsigned.map(s => s.signing_order))
 })
 
-// Signatories eligible to sign right now
-const pendingSignatories = computed(() => {
-    if (currentTier.value === null) return []
-    return signatories.value.filter(
-        s => s.signing_order === currentTier.value && !signedIds.value.has(s.id)
-    )
-})
 
 const statusClass = computed(() => {
     const map: Record<string, string> = {
@@ -175,7 +168,7 @@ onMounted(fetchContract)
                     <!-- Ready to sign (in current tier) -->
                     <div v-else-if="currentTier !== null && s.signing_order === currentTier && !isFullySigned" class="sign-signatory-status ready">
                         <SyvoraButton
-                            :variant="selectedSignatoryId === s.id ? 'default' : 'ghost'"
+                            :variant="selectedSignatoryId === s.id ? 'primary' : 'ghost'"
                             size="sm"
                             @click="selectedSignatoryId = s.id"
                         >

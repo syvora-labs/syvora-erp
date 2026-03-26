@@ -4,12 +4,11 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useContracts } from '../composables/useContracts'
 import { useArtists } from '../composables/useArtists'
 import { useReleases } from '../composables/useReleases'
-import { useMandator } from '../composables/useMandator'
 import type { Contract, ContractSignatory, ContractSignature } from '../composables/useContracts'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
-    SyvoraCard, SyvoraBadge, SyvoraStepIndicator,
+    SyvoraCard, SyvoraStepIndicator,
 } from '@syvora/ui'
 
 const route = useRoute()
@@ -21,7 +20,7 @@ const {
 } = useContracts()
 const { artists, fetchArtists } = useArtists()
 const { releases, fetchReleases } = useReleases()
-const { mandator } = useMandator()
+// mandator composable used indirectly via useContracts
 
 // Modal state
 const showModal = ref(false)
@@ -282,7 +281,7 @@ onMounted(async () => {
 
     <!-- Multi-step creation modal -->
     <SyvoraModal v-if="showModal" title="New Contract" size="lg" @close="showModal = false">
-        <SyvoraStepIndicator :steps="['Template', 'Details', 'Signatories']" :current="step - 1" />
+        <SyvoraStepIndicator :steps="['Template', 'Details', 'Signatories']" :active-step="step - 1" />
 
         <!-- Step 1: Template -->
         <div v-if="step === 1" class="modal-form">
@@ -361,7 +360,7 @@ onMounted(async () => {
                         <SyvoraInput v-model="s.display_name" placeholder="e.g. Founder" />
                     </SyvoraFormField>
                     <SyvoraFormField label="Signing Order" class="signing-order-field">
-                        <SyvoraInput v-model.number="s.signing_order" type="number" min="0" />
+                        <input class="native-select" v-model.number="s.signing_order" type="number" min="0" style="width:100%;padding:0.75rem 1rem" />
                     </SyvoraFormField>
                 </div>
                 <div class="form-row">
