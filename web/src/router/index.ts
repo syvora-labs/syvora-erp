@@ -15,6 +15,9 @@ import AssociationMemberDetailView from "../views/AssociationMemberDetailView.vu
 import MeetingsView from "../views/MeetingsView.vue";
 import RoadmapView from "../views/RoadmapView.vue";
 import LightsView from "../views/LightsView.vue";
+import ContractsView from "../views/ContractsView.vue";
+import ContractTemplatesView from "../views/ContractTemplatesView.vue";
+import ContractSignView from "../views/ContractSignView.vue";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -32,6 +35,9 @@ const router = createRouter({
         { path: "/meetings", component: MeetingsView, meta: { requiresAuth: true, module: "meetings" } },
         { path: "/roadmap", component: RoadmapView, meta: { requiresAuth: true, module: "roadmap" } },
         { path: "/lights", component: LightsView, meta: { requiresAuth: true, module: "lights" } },
+        { path: "/contracts", component: ContractsView, meta: { requiresAuth: true, module: "contracts" } },
+        { path: "/contracts/templates", component: ContractTemplatesView, meta: { requiresAuth: true, module: "contracts" } },
+        { path: "/sign/:token", component: ContractSignView, meta: { public: true } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
     ],
