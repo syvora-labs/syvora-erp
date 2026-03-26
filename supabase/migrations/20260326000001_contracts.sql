@@ -250,110 +250,92 @@ INSERT INTO public.contract_templates (
 ) VALUES (
     '00000000-0000-0000-0000-000000000001',
     'Standard Exclusive Recording Agreement (CH)',
-    E'STANDARD EXCLUSIVE RECORDING AGREEMENT\n'
-    E'\n'
-    E'This Exclusive Recording Agreement (the "Agreement") is entered into as of {{contract_date}} between:\n'
-    E'\n'
-    E'LABEL\n'
-    E'{{label_name}}\n'
-    E'{{label_address}}\n'
-    E'UID: {{label_uid}}\n'
-    E'(hereinafter "Label")\n'
-    E'\n'
-    E'and\n'
-    E'\n'
-    E'ARTIST\n'
-    E'{{artist_name}}\n'
-    E'{{artist_address}}\n'
-    E'Date of Birth: {{artist_dob}}\n'
-    E'(hereinafter "Artist")\n'
-    E'\n'
-    E'collectively referred to as the "Parties".\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'1. SUBJECT MATTER\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'1.1 The Artist hereby grants the Label the exclusive right to produce, manufacture, distribute, sell, and exploit sound recordings of the Artist''s performances, including the release tentatively titled "{{release_title}}" (type: {{release_type}}), throughout the Term and Territory defined herein.\n'
-    E'\n'
-    E'1.2 The Label agrees to release the recordings in accordance with the terms set forth in this Agreement.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'2. TERRITORY\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'2.1 This Agreement applies to the following territory: {{territory}}.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'3. TERM\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'3.1 The term of this Agreement shall commence on {{effective_date}} and shall continue for {{term}} (the "Term"), unless earlier terminated in accordance with Section 8.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'4. GRANT OF RIGHTS\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'4.1 Exclusivity: {{exclusivity}}. The Artist shall not record for any other label or make recordings available for commercial release through any third party during the Term without prior written consent of the Label.\n'
-    E'\n'
-    E'4.2 The rights granted include, but are not limited to, the right to reproduce, distribute, publicly perform, broadcast, stream, and sub-license the recordings in all formats and media now known or hereafter developed.\n'
-    E'\n'
-    E'4.3 The Label acknowledges the Artist''s moral rights (Urheberpersönlichkeitsrechte) as protected under Swiss copyright law (URG Art. 16) and agrees not to distort or mutilate the recordings in a manner prejudicial to the Artist''s honour or reputation.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'5. REMUNERATION\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'5.1 Royalty Rate: The Label shall pay the Artist a royalty of {{royalty_rate}} of net receipts derived from the exploitation of the recordings, calculated and paid semi-annually.\n'
-    E'\n'
-    E'5.2 Advance: The Label shall pay the Artist a non-refundable advance of {{advance}} against future royalties. This advance shall be recouped from royalties otherwise payable to the Artist.\n'
-    E'\n'
-    E'5.3 Accounting statements shall be provided within sixty (60) days following the end of each accounting period.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'6. RELEASE OBLIGATIONS\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'6.1 The Label shall use commercially reasonable efforts to release the recordings within twelve (12) months of delivery of the final masters.\n'
-    E'\n'
-    E'6.2 If the Label fails to release the recordings within the agreed timeframe, the Artist may provide written notice and the Label shall have ninety (90) days to cure such failure, after which the Artist may terminate this Agreement with respect to the unreleased recordings.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'7. TERMINATION\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'7.1 Either Party may terminate this Agreement for cause upon thirty (30) days'' written notice if the other Party materially breaches this Agreement and fails to cure such breach within the notice period.\n'
-    E'\n'
-    E'7.2 Upon termination, all rights granted to the Label hereunder shall revert to the Artist, provided that the Label may continue to distribute and sell existing stock for a period of six (6) months following termination.\n'
-    E'\n'
-    E'7.3 Termination shall not affect any accrued obligations, including unpaid royalties.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'8. GOVERNING LAW AND JURISDICTION\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'8.1 This Agreement shall be governed by and construed in accordance with {{governing_law}}.\n'
-    E'\n'
-    E'8.2 Any disputes arising out of or in connection with this Agreement shall be subject to the exclusive jurisdiction of the courts of {{jurisdiction_canton}}, Switzerland.\n'
-    E'\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'9. SIGNATURES\n'
-    E'─────────────────────────────────────────────────────────────────────────────\n'
-    E'\n'
-    E'By signing below, the Parties agree to be bound by the terms and conditions of this Agreement.\n'
-    E'\n'
-    E'For the Label:\n'
-    E'\n'
-    E'Signature: ___________________________\n'
-    E'Name:      ___________________________\n'
-    E'Title:     ___________________________\n'
-    E'Date:      ___________________________\n'
-    E'\n'
-    E'For the Artist:\n'
-    E'\n'
-    E'Signature: ___________________________\n'
-    E'Name:      ___________________________\n'
-    E'Date:      ___________________________\n',
+$$STANDARD EXCLUSIVE RECORDING AGREEMENT
+
+This Exclusive Recording Agreement (the "Agreement") is entered into as of {{contract_date}} between:
+
+LABEL
+{{label_name}}
+{{label_address}}
+UID: {{label_uid}}
+(hereinafter "Label")
+
+and
+
+ARTIST
+{{artist_name}}
+{{artist_address}}
+Date of Birth: {{artist_dob}}
+(hereinafter "Artist")
+
+collectively referred to as the "Parties".
+
+1. SUBJECT MATTER
+
+1.1 The Artist hereby grants the Label the exclusive right to produce, manufacture, distribute, sell, and exploit sound recordings of the Artist's performances, including the release tentatively titled "{{release_title}}" (type: {{release_type}}), throughout the Term and Territory defined herein.
+
+1.2 The Label agrees to release the recordings in accordance with the terms set forth in this Agreement.
+
+2. TERRITORY
+
+2.1 This Agreement applies to the following territory: {{territory}}.
+
+3. TERM
+
+3.1 The term of this Agreement shall commence on {{effective_date}} and shall continue for {{term}} (the "Term"), unless earlier terminated in accordance with Section 8.
+
+4. GRANT OF RIGHTS
+
+4.1 Exclusivity: {{exclusivity}}. The Artist shall not record for any other label or make recordings available for commercial release through any third party during the Term without prior written consent of the Label.
+
+4.2 The rights granted include, but are not limited to, the right to reproduce, distribute, publicly perform, broadcast, stream, and sub-license the recordings in all formats and media now known or hereafter developed.
+
+4.3 The Label acknowledges the Artist's moral rights (Urheberpersoenlichkeitsrechte) as protected under Swiss copyright law (URG Art. 16) and agrees not to distort or mutilate the recordings in a manner prejudicial to the Artist's honour or reputation.
+
+5. REMUNERATION
+
+5.1 Royalty Rate: The Label shall pay the Artist a royalty of {{royalty_rate}} of net receipts derived from the exploitation of the recordings, calculated and paid semi-annually.
+
+5.2 Advance: The Label shall pay the Artist a non-refundable advance of {{advance}} against future royalties. This advance shall be recouped from royalties otherwise payable to the Artist.
+
+5.3 Accounting statements shall be provided within sixty (60) days following the end of each accounting period.
+
+6. RELEASE OBLIGATIONS
+
+6.1 The Label shall use commercially reasonable efforts to release the recordings within twelve (12) months of delivery of the final masters.
+
+6.2 If the Label fails to release the recordings within the agreed timeframe, the Artist may provide written notice and the Label shall have ninety (90) days to cure such failure, after which the Artist may terminate this Agreement with respect to the unreleased recordings.
+
+7. TERMINATION
+
+7.1 Either Party may terminate this Agreement for cause upon thirty (30) days' written notice if the other Party materially breaches this Agreement and fails to cure such breach within the notice period.
+
+7.2 Upon termination, all rights granted to the Label hereunder shall revert to the Artist, provided that the Label may continue to distribute and sell existing stock for a period of six (6) months following termination.
+
+7.3 Termination shall not affect any accrued obligations, including unpaid royalties.
+
+8. GOVERNING LAW AND JURISDICTION
+
+8.1 This Agreement shall be governed by and construed in accordance with {{governing_law}}.
+
+8.2 Any disputes arising out of or in connection with this Agreement shall be subject to the exclusive jurisdiction of the courts of {{jurisdiction_canton}}, Switzerland.
+
+9. SIGNATURES
+
+By signing below, the Parties agree to be bound by the terms and conditions of this Agreement.
+
+For the Label:
+
+Signature: ___________________________
+Name:      ___________________________
+Title:     ___________________________
+Date:      ___________________________
+
+For the Artist:
+
+Signature: ___________________________
+Name:      ___________________________
+Date:      ___________________________$$,
     'Zurich',
     'Swiss law (Obligationenrecht, SR 220)'
 );
