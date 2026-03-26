@@ -98,10 +98,6 @@ CREATE POLICY "Users can update contracts in their mandator"
     ON public.contracts FOR UPDATE TO authenticated
     USING (mandator_id = public.get_my_mandator_id());
 
-CREATE POLICY "Users can delete voided contracts in their mandator"
-    ON public.contracts FOR DELETE TO authenticated
-    USING (mandator_id = public.get_my_mandator_id() AND status = 'voided');
-
 CREATE TRIGGER contracts_updated_at
     BEFORE UPDATE ON public.contracts
     FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
