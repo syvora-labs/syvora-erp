@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { marked } from 'marked'
+import jsPDF from 'jspdf'
 import SignatureCanvas from '../components/SignatureCanvas.vue'
 import { SyvoraButton, SyvoraCard } from '@syvora/ui'
+
+marked.setOptions({ breaks: true, gfm: true })
 
 const route = useRoute()
 const token = computed(() => route.params.token as string)
@@ -102,8 +106,136 @@ function clearCanvas() {
     capturedSvg.value = ''
 }
 
+function renderMarkdown(content: string): string {
+    return marked.parse(content) as string
+}
+
 function formatDate(d: string) {
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+async function exportPdf() {
+    if (!contract.value) return
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const margin = 20
+    const contentW = pageW - margin * 2
+    let y = margin
+
+    function checkPage(needed: number) {
+        if (y + needed > 280) {
+            doc.addPage()
+            y = margin
+        }
+    }
+
+    // Header
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text(contract.value.title, margin, y)
+    y += 10
+
+    if (mandatorInfo.value?.name) {
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(120, 120, 120)
+        doc.text(mandatorInfo.value.name, margin, y)
+        y += 6
+    }
+
+    if (contract.value.concluded_at) {
+        doc.setFontSize(9)
+        doc.setTextColor(74, 163, 80)
+        doc.text(`Concluded on ${formatDate(contract.value.concluded_at)}`, margin, y)
+        y += 8
+    }
+
+    doc.setTextColor(0, 0, 0)
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, y, pageW - margin, y)
+    y += 8
+
+    // Body text — strip markdown, split into lines
+    const plainBody = contract.value.body_snapshot
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/`(.*?)`/g, '$1')
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    const lines = doc.splitTextToSize(plainBody, contentW)
+    for (const line of lines) {
+        checkPage(5)
+        doc.text(line, margin, y)
+        y += 4.5
+    }
+
+    // Signatures section
+    y += 8
+    checkPage(20)
+    doc.setDrawColor(200, 200, 200)
+    doc.line(margin, y, pageW - margin, y)
+    y += 8
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Signatures', margin, y)
+    y += 8
+
+    for (const s of signatories.value) {
+        checkPage(40)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(120, 120, 120)
+        doc.text(s.display_name.toUpperCase(), margin, y)
+        y += 5
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(0, 0, 0)
+        doc.text(s.legal_name, margin, y)
+        y += 5
+
+        const sig = signatures.value.find(x => x.signatory_id === s.id)
+        if (sig) {
+            doc.setFontSize(8)
+            doc.setTextColor(74, 163, 80)
+            doc.text(`Signed on ${formatDate(sig.signed_at)}`, margin, y)
+            y += 5
+
+            // Render SVG signature as image
+            try {
+                const svgStr = sig.signature_svg
+                const canvas = document.createElement('canvas')
+                canvas.width = 500
+                canvas.height = 200
+                const ctx = canvas.getContext('2d')!
+                const img = new Image()
+                const blob = new Blob([svgStr], { type: 'image/svg+xml' })
+                const url = URL.createObjectURL(blob)
+                await new Promise<void>((resolve) => {
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, 500, 200)
+                        URL.revokeObjectURL(url)
+                        resolve()
+                    }
+                    img.onerror = () => { URL.revokeObjectURL(url); resolve() }
+                    img.src = url
+                })
+                const imgData = canvas.toDataURL('image/png')
+                doc.addImage(imgData, 'PNG', margin, y, 60, 24)
+                y += 28
+            } catch {
+                y += 5
+            }
+        } else {
+            doc.setFontSize(8)
+            doc.setTextColor(180, 180, 180)
+            doc.text('(not signed)', margin, y)
+            y += 5
+        }
+        doc.setTextColor(0, 0, 0)
+        y += 4
+    }
+
+    doc.save(`${contract.value.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`)
 }
 
 onMounted(fetchContract)
@@ -140,11 +272,12 @@ onMounted(fetchContract)
             <div v-if="isFullySigned" class="sign-concluded">
                 <h2>Contract Fully Signed</h2>
                 <p>This contract was concluded on {{ formatDate(contract.concluded_at) }}.</p>
+                <SyvoraButton @click="exportPdf" style="margin-top: 0.75rem;">Export PDF</SyvoraButton>
             </div>
 
             <!-- Contract body -->
             <SyvoraCard class="sign-body-card">
-                <pre class="sign-body">{{ contract.body_snapshot }}</pre>
+                <div class="sign-body markdown-body" v-html="renderMarkdown(contract.body_snapshot)"></div>
             </SyvoraCard>
 
             <!-- Signatories -->
@@ -221,7 +354,13 @@ onMounted(fetchContract)
 .sign-concluded { background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: var(--radius-sm); padding: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
 .sign-concluded h2 { color: #4ade80; margin: 0 0 0.5rem; }
 .sign-body-card { margin-bottom: 2rem; }
-.sign-body { white-space: pre-wrap; font-size: 0.875rem; line-height: 1.7; margin: 0; font-family: inherit; }
+.sign-body { font-size: 0.875rem; line-height: 1.7; margin: 0; }
+.sign-body :deep(h1) { font-size: 1.25rem; margin: 1.5rem 0 0.75rem; }
+.sign-body :deep(h2) { font-size: 1.125rem; margin: 1.25rem 0 0.5rem; }
+.sign-body :deep(h3) { font-size: 1rem; margin: 1rem 0 0.5rem; }
+.sign-body :deep(p) { margin: 0 0 0.75rem; }
+.sign-body :deep(ul), .sign-body :deep(ol) { margin: 0 0 0.75rem; padding-left: 1.5rem; }
+.sign-body :deep(hr) { border: none; border-top: 1px solid var(--color-border-subtle); margin: 1rem 0; }
 .section-title { font-size: 1.125rem; font-weight: 700; margin: 0 0 1rem; }
 .signatories-list { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; }
 .sign-signatory { display: flex; justify-content: space-between; align-items: flex-start; padding: 1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); background: rgba(255,255,255,0.6); }

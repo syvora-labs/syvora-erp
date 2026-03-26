@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
+import { marked } from 'marked'
 import { useContracts } from '../composables/useContracts'
+
+marked.setOptions({ breaks: true, gfm: true })
 import { useArtists } from '../composables/useArtists'
 import { useReleases } from '../composables/useReleases'
 import type { Contract, ContractSignatory, ContractSignature } from '../composables/useContracts'
@@ -193,6 +196,10 @@ function statusVariant(status: string): string {
     return map[status] ?? 'badge-deposit'
 }
 
+function renderMarkdown(content: string): string {
+    return marked.parse(content) as string
+}
+
 function formatDate(d: string | null): string {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -264,7 +271,7 @@ onMounted(async () => {
                 <div v-if="expandedContractId === c.id" class="contract-detail">
                     <div class="detail-body">
                         <h4>Contract Body</h4>
-                        <pre class="body-text">{{ c.body_snapshot }}</pre>
+                        <div class="body-text markdown-body" v-html="renderMarkdown(c.body_snapshot)"></div>
                     </div>
                     <div class="detail-signatories">
                         <h4>Signatories</h4>
@@ -302,7 +309,7 @@ onMounted(async () => {
             </SyvoraFormField>
             <div v-else class="template-preview">
                 <p class="preview-label">Template preview:</p>
-                <pre class="preview-text">{{ templates.find(t => t.id === selectedTemplateId)?.body?.substring(0, 500) }}...</pre>
+                <div class="preview-text markdown-body" v-html="renderMarkdown((templates.find(t => t.id === selectedTemplateId)?.body?.substring(0, 500) ?? '') + '...')"></div>
             </div>
         </div>
 
@@ -455,10 +462,16 @@ onMounted(async () => {
 .detail-signatories { margin-top: 1rem; }
 
 .body-text {
-    white-space: pre-wrap; font-size: 0.8125rem; max-height: 400px; overflow-y: auto;
+    font-size: 0.8125rem; max-height: 400px; overflow-y: auto;
     background: rgba(0, 0, 0, 0.03); padding: 1rem; border-radius: var(--radius-sm);
-    margin: 0;
+    margin: 0; line-height: 1.6;
 }
+.body-text :deep(h1) { font-size: 1.125rem; margin: 1rem 0 0.5rem; }
+.body-text :deep(h2) { font-size: 1rem; margin: 0.75rem 0 0.375rem; }
+.body-text :deep(h3) { font-size: 0.9375rem; margin: 0.625rem 0 0.375rem; }
+.body-text :deep(p) { margin: 0 0 0.5rem; }
+.body-text :deep(ul), .body-text :deep(ol) { margin: 0 0 0.5rem; padding-left: 1.25rem; }
+.body-text :deep(hr) { border: none; border-top: 1px solid var(--color-border-subtle); margin: 0.75rem 0; }
 
 .signatory-row {
     display: flex; align-items: center; gap: 0.75rem;
