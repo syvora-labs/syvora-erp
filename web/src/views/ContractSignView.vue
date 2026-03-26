@@ -116,123 +116,264 @@ function formatDate(d: string) {
 
 async function exportPdf() {
     if (!contract.value) return
+
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-    const pageW = 210
-    const margin = 20
-    const contentW = pageW - margin * 2
-    let y = margin
+    const PW = 210, PH = 297
+    const ML = 22, MR = 22, MT = 28, MB = 22
+    const CW = PW - ML - MR
+    let y = MT
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     function checkPage(needed: number) {
-        if (y + needed > 280) {
-            doc.addPage()
-            y = margin
-        }
+        if (y + needed > PH - MB - 14) { doc.addPage(); y = MT }
     }
 
-    // Header
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text(contract.value.title, margin, y)
-    y += 10
+    function hline(yy: number, r = 180, g = 180, b = 180, lw = 0.15) {
+        doc.setDrawColor(r, g, b); doc.setLineWidth(lw)
+        doc.line(ML, yy, PW - MR, yy)
+        doc.setLineWidth(0.15)
+    }
+
+    // Parse inline **bold** segments
+    type Seg = { text: string; bold: boolean }
+    function parseSegs(raw: string): Seg[] {
+        const out: Seg[] = []
+        for (const p of raw.split(/(\*\*[^*\n]+\*\*)/)) {
+            if (!p) continue
+            if (p.startsWith('**') && p.endsWith('**')) {
+                out.push({ text: p.slice(2, -2), bold: true })
+            } else {
+                const c = p.replace(/\*(.*?)\*/g, '$1').replace(/`([^`]+)`/g, '$1')
+                if (c) out.push({ text: c, bold: false })
+            }
+        }
+        return out
+    }
+
+    // Render one paragraph with inline bold, returns height used
+    function renderPara(raw: string, x: number, startY: number, maxW: number, fs = 9.5, lh = 5.2): number {
+        if (!raw.trim()) return 0
+        type W = { text: string; bold: boolean }
+        const words: W[] = []
+        for (const seg of parseSegs(raw)) {
+            for (const t of seg.text.split(/\s+/)) { if (t) words.push({ text: t, bold: seg.bold }) }
+        }
+        if (!words.length) return 0
+        doc.setFontSize(fs)
+        // Build lines
+        const lines: W[][] = []
+        let cur: W[] = [], curW = 0
+        for (const w of words) {
+            doc.setFont('times', w.bold ? 'bold' : 'normal')
+            const ww = doc.getTextWidth(w.text + ' ')
+            if (curW + ww > maxW + 0.5 && cur.length) { lines.push(cur); cur = [w]; curW = ww }
+            else { cur.push(w); curW += ww }
+        }
+        if (cur.length) lines.push(cur)
+        // Render lines with page-break checks
+        let py = startY
+        for (const line of lines) {
+            if (py > startY) checkPage(lh + 1)
+            let px = x
+            for (const w of line) {
+                doc.setFont('times', w.bold ? 'bold' : 'normal')
+                doc.text(w.text, px, py)
+                px += doc.getTextWidth(w.text + ' ')
+            }
+            py += lh
+        }
+        return lines.length * lh
+    }
+
+    // ── Load logo ─────────────────────────────────────────────────────────────
+    let logoDataUrl: string | null = null
+    if (mandatorInfo.value?.logo_url) {
+        try {
+            const resp = await fetch(mandatorInfo.value.logo_url)
+            const blob = await resp.blob()
+            logoDataUrl = await new Promise<string>((res, rej) => {
+                const reader = new FileReader()
+                reader.onload = () => res(reader.result as string)
+                reader.onerror = rej
+                reader.readAsDataURL(blob)
+            })
+        } catch { /* proceed without logo */ }
+    }
+
+    // ── Header (first page) ───────────────────────────────────────────────────
+    const LOGO_W = 22, LOGO_H = 22
+    if (logoDataUrl) {
+        doc.addImage(logoDataUrl, PW - MR - LOGO_W, MT, LOGO_W, LOGO_H)
+    }
+
+    const titleMaxW = CW - (logoDataUrl ? LOGO_W + 6 : 0)
+    doc.setFontSize(17)
+    doc.setFont('times', 'bold')
+    doc.setTextColor(15, 15, 15)
+    const titleLines = doc.splitTextToSize(contract.value.title, titleMaxW) as string[]
+    doc.text(titleLines, ML, y)
+    y += titleLines.length * 7.5
 
     if (mandatorInfo.value?.name) {
-        doc.setFontSize(10)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(120, 120, 120)
-        doc.text(mandatorInfo.value.name, margin, y)
-        y += 6
+        doc.setFontSize(9)
+        doc.setFont('times', 'normal')
+        doc.setTextColor(110, 110, 110)
+        doc.text(mandatorInfo.value.name, ML, y)
+        y += 5
     }
 
     if (contract.value.concluded_at) {
-        doc.setFontSize(9)
-        doc.setTextColor(74, 163, 80)
-        doc.text(`Concluded on ${formatDate(contract.value.concluded_at)}`, margin, y)
-        y += 8
+        doc.setFontSize(8.5)
+        doc.setFont('times', 'normal')
+        doc.setTextColor(34, 130, 34)
+        doc.text(`Concluded: ${formatDate(contract.value.concluded_at)}`, ML, y)
+        y += 5
     }
 
-    doc.setTextColor(0, 0, 0)
-    doc.setDrawColor(200, 200, 200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 8
+    if (logoDataUrl) y = Math.max(y, MT + LOGO_H + 5)
 
-    // Body text — strip markdown, split into lines
-    const plainBody = contract.value.body_snapshot
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/`(.*?)`/g, '$1')
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    const lines = doc.splitTextToSize(plainBody, contentW)
-    for (const line of lines) {
-        checkPage(5)
-        doc.text(line, margin, y)
-        y += 4.5
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.55)
+    doc.line(ML, y, PW - MR, y)
+    doc.setLineWidth(0.15)
+    y += 9
+
+    // ── Body ──────────────────────────────────────────────────────────────────
+    doc.setTextColor(20, 20, 20)
+
+    for (const rawLine of contract.value.body_snapshot.split('\n')) {
+        const line = rawLine.trimEnd()
+
+        if (/^-{3,}$/.test(line.trim())) {
+            checkPage(8); y += 2; hline(y, 200, 200, 200); y += 6; continue
+        }
+
+        if (line.startsWith('# ')) {
+            checkPage(14); y += 4
+            doc.setFontSize(13); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
+            const w = doc.splitTextToSize(line.slice(2), CW) as string[]
+            doc.text(w, ML, y); y += w.length * 7 + 2; continue
+        }
+
+        if (line.startsWith('## ')) {
+            checkPage(12); y += 4
+            doc.setFontSize(11); doc.setFont('times', 'bold'); doc.setTextColor(25, 25, 25)
+            const w = doc.splitTextToSize(line.slice(3), CW) as string[]
+            doc.text(w, ML, y); y += w.length * 6 + 2; continue
+        }
+
+        if (line.startsWith('### ')) {
+            checkPage(10); y += 2
+            doc.setFontSize(10); doc.setFont('times', 'bold'); doc.setTextColor(30, 30, 30)
+            const w = doc.splitTextToSize(line.slice(4), CW) as string[]
+            doc.text(w, ML, y); y += w.length * 5.5 + 1; continue
+        }
+
+        if (line.trim() === '') { y += 2.5; continue }
+
+        const listMatch = line.match(/^(\s*)([-*]|\d+\.) (.+)$/)
+        if (listMatch) {
+            const indent = Math.floor(listMatch[1].length / 2) * 4
+            const bx = ML + 4 + indent
+            const tx = bx + 5
+            const aw = CW - 4 - indent - 5
+            const segs = parseSegs(listMatch[3])
+            const plain = segs.map(s => s.text).join(' ')
+            checkPage((doc.splitTextToSize(plain, aw) as string[]).length * 5.2 + 2)
+            doc.setFontSize(9.5); doc.setFont('times', 'normal'); doc.setTextColor(20, 20, 20)
+            const bullet = /^\d/.test(listMatch[2]) ? listMatch[2] : '•'
+            doc.text(bullet, bx, y)
+            const h = renderPara(listMatch[3], tx, y, aw)
+            y += Math.max(h, 5.2) + 1; continue
+        }
+
+        // Regular paragraph
+        doc.setFontSize(9.5); doc.setFont('times', 'normal'); doc.setTextColor(20, 20, 20)
+        const segs = parseSegs(line)
+        const plain = segs.map(s => s.text).join(' ')
+        checkPage((doc.splitTextToSize(plain, CW) as string[]).length * 5.2 + 2)
+        y += renderPara(line, ML, y, CW) + 0.8
     }
 
-    // Signatures section
-    y += 8
-    checkPage(20)
-    doc.setDrawColor(200, 200, 200)
-    doc.line(margin, y, pageW - margin, y)
-    y += 8
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Signatures', margin, y)
-    y += 8
+    // ── Signatures ────────────────────────────────────────────────────────────
+    y += 8; checkPage(55)
+    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.4)
+    doc.line(ML, y, PW - MR, y)
+    doc.setLineWidth(0.15); y += 9
 
-    for (const s of signatories.value) {
-        checkPage(40)
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(120, 120, 120)
-        doc.text(s.display_name.toUpperCase(), margin, y)
-        y += 5
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(0, 0, 0)
-        doc.text(s.legal_name, margin, y)
-        y += 5
+    doc.setFontSize(11); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
+    doc.text('SIGNATURES', ML, y); y += 10
 
+    for (let idx = 0; idx < signatories.value.length; idx++) {
+        const s = signatories.value[idx]
         const sig = signatures.value.find(x => x.signatory_id === s.id)
-        if (sig) {
-            doc.setFontSize(8)
-            doc.setTextColor(74, 163, 80)
-            doc.text(`Signed on ${formatDate(sig.signed_at)}`, margin, y)
-            y += 5
+        checkPage(55)
 
-            // Render SVG signature as image
+        // Role label
+        doc.setFontSize(7.5); doc.setFont('times', 'bold'); doc.setTextColor(120, 120, 120)
+        doc.text(s.display_name.toUpperCase(), ML, y); y += 5
+
+        // Legal name
+        doc.setFontSize(10.5); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
+        doc.text(s.legal_name, ML, y); y += 5.5
+
+        // Address
+        if (s.address) {
+            doc.setFontSize(8.5); doc.setFont('times', 'normal'); doc.setTextColor(80, 80, 80)
+            const addrLines = doc.splitTextToSize(s.address, CW * 0.55) as string[]
+            doc.text(addrLines, ML, y); y += addrLines.length * 4.5
+        }
+
+        y += 2
+
+        if (sig) {
+            // Signed date
+            doc.setFontSize(8.5); doc.setFont('times', 'normal'); doc.setTextColor(34, 120, 34)
+            doc.text(`Signed: ${formatDate(sig.signed_at)}`, ML, y); y += 6
+
+            // Signature image
             try {
-                const svgStr = sig.signature_svg
                 const canvas = document.createElement('canvas')
-                canvas.width = 500
-                canvas.height = 200
+                canvas.width = 600; canvas.height = 200
                 const ctx = canvas.getContext('2d')!
                 const img = new Image()
-                const blob = new Blob([svgStr], { type: 'image/svg+xml' })
+                const blob = new Blob([sig.signature_svg], { type: 'image/svg+xml' })
                 const url = URL.createObjectURL(blob)
                 await new Promise<void>((resolve) => {
-                    img.onload = () => {
-                        ctx.drawImage(img, 0, 0, 500, 200)
-                        URL.revokeObjectURL(url)
-                        resolve()
-                    }
+                    img.onload = () => { ctx.drawImage(img, 0, 0, 600, 200); URL.revokeObjectURL(url); resolve() }
                     img.onerror = () => { URL.revokeObjectURL(url); resolve() }
                     img.src = url
                 })
                 const imgData = canvas.toDataURL('image/png')
-                doc.addImage(imgData, 'PNG', margin, y, 60, 24)
-                y += 28
-            } catch {
-                y += 5
-            }
+                doc.addImage(imgData, 'PNG', ML, y, 72, 24)
+                // Underline
+                doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3)
+                doc.line(ML, y + 24, ML + 72, y + 24)
+                doc.setLineWidth(0.15); y += 30
+            } catch { y += 8 }
         } else {
-            doc.setFontSize(8)
-            doc.setTextColor(180, 180, 180)
-            doc.text('(not signed)', margin, y)
-            y += 5
+            doc.setFontSize(8); doc.setFont('times', 'normal'); doc.setTextColor(170, 170, 170)
+            doc.text('(pending signature)', ML, y); y += 6
+            doc.setDrawColor(170, 170, 170); doc.setLineWidth(0.25)
+            doc.line(ML, y + 12, ML + 72, y + 12)
+            doc.setLineWidth(0.15); y += 20
         }
-        doc.setTextColor(0, 0, 0)
+
         y += 4
+        if (idx < signatories.value.length - 1) { hline(y, 225, 225, 225); y += 6 }
+    }
+
+    // ── Footer on every page ──────────────────────────────────────────────────
+    const totalPg = doc.getNumberOfPages()
+    for (let pg = 1; pg <= totalPg; pg++) {
+        doc.setPage(pg)
+        hline(PH - MB - 3, 210, 210, 210)
+        doc.setFontSize(7.5); doc.setFont('times', 'normal'); doc.setTextColor(155, 155, 155)
+        doc.text(contract.value.title, ML, PH - MB + 2)
+        if (mandatorInfo.value?.name) {
+            doc.text(mandatorInfo.value.name, PW / 2, PH - MB + 2, { align: 'center' })
+        }
+        doc.text(`${pg} / ${totalPg}`, PW - MR, PH - MB + 2, { align: 'right' })
     }
 
     doc.save(`${contract.value.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`)

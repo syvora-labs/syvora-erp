@@ -370,6 +370,7 @@ export function useContracts() {
         await fetchContracts()
     }
 
+
     async function openContract(id: string) {
         const { data: { user } } = await supabase.auth.getUser()
 
@@ -491,6 +492,7 @@ export function useContracts() {
         if (error) throw error
         await fetchContracts()
     }
+
 
     function getSigningUrl(contract: Contract): string {
         return `/sign/${contract.public_token}`
