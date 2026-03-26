@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { useReleases, type Release, type ReleaseType, type Track } from '../composables/useReleases'
 import { useMandator } from '../composables/useMandator'
+import { useContracts, type Contract } from '../composables/useContracts'
 import { useArtists } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
@@ -18,6 +19,8 @@ const {
 const router = useRouter()
 const { contractsEnabled } = useMandator()
 const { artists: allArtists, fetchArtists: fetchAllArtists } = useArtists()
+const { fetchContractsByRelease } = useContracts()
+const releaseContracts = ref<Record<string, Contract[]>>({})
 
 // ── Modal state ──────────────────────────────────────────────────────────────
 const showModal = ref(false)
@@ -149,8 +152,15 @@ function formatTime(s: number) {
     return `${m}:${sec}`
 }
 
-function toggleExpand(releaseId: string) {
+async function toggleExpand(releaseId: string) {
     expandedReleaseId.value = expandedReleaseId.value === releaseId ? null : releaseId
+    if (expandedReleaseId.value && contractsEnabled.value && !releaseContracts.value[releaseId]) {
+        try {
+            releaseContracts.value[releaseId] = await fetchContractsByRelease(releaseId)
+        } catch {
+            // Silently ignore — contracts are supplementary info
+        }
+    }
 }
 
 function closePlayer() {
@@ -325,6 +335,15 @@ async function handleDelete(release: Release) {
     }
 }
 
+function contractStatusClass(status: string): string {
+    const map: Record<string, string> = {
+        draft: 'badge-deposit', open: 'badge-warning',
+        partially_signed: 'badge-claim', fully_signed: 'badge-success',
+        voided: 'badge-disabled',
+    }
+    return map[status] ?? 'badge-deposit'
+}
+
 function typeBadgeClass(type: ReleaseType) {
     const map: Record<ReleaseType, string> = {
         album: 'badge-success', ep: 'badge-warning', single: 'badge-claim', compilation: 'badge-deposit',
@@ -433,6 +452,16 @@ function formatAuditDate(d: string) {
                             </button>
                             <span v-if="track.track_number" class="inline-num">{{ track.track_number }}</span>
                             <span class="inline-title">{{ track.title }}</span>
+                        </div>
+                    </div>
+
+                    <div v-if="expandedReleaseId === release.id && contractsEnabled && releaseContracts[release.id]?.length" class="inline-contracts">
+                        <span class="contracts-label">Contracts</span>
+                        <div v-for="c in releaseContracts[release.id]" :key="c.id" class="contract-mini">
+                            <span class="badge" :class="contractStatusClass(c.status)">{{ c.status.replace(/_/g, ' ') }}</span>
+                            <span class="contract-mini-title">{{ c.title }}</span>
+                            <span class="contract-mini-progress">{{ c.signature_count }}/{{ c.signatory_count }} signed</span>
+                            <RouterLink to="/contracts" class="contract-mini-link">View</RouterLink>
                         </div>
                     </div>
 
@@ -738,6 +767,55 @@ function formatAuditDate(d: string) {
     min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .inline-track.track-active .inline-title { color: var(--color-accent); }
+
+/* ── Inline contracts ─────────────────────────────────────────────────────── */
+.inline-contracts {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.contracts-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.contract-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0;
+    font-size: 0.8125rem;
+}
+
+.contract-mini-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contract-mini-progress {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.contract-mini-link {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.contract-mini-link:hover {
+    text-decoration: underline;
+}
 
 /* ── Player bar ───────────────────────────────────────────────────────────── */
 .player-bar {
