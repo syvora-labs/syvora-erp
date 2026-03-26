@@ -184,6 +184,7 @@ function formatDate(d: string): string {
 <style scoped>
 .modal-wide :deep(.syvora-modal--lg) { max-width: 840px; }
 
+
 .page {
     max-width: 960px;
     margin: 0 auto;
