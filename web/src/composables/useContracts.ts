@@ -400,6 +400,15 @@ export function useContracts() {
         await fetchContracts()
     }
 
+    async function deleteContract(id: string) {
+        const { error } = await supabase
+            .from('contracts')
+            .delete()
+            .eq('id', id)
+        if (error) throw error
+        contracts.value = contracts.value.filter(c => c.id !== id)
+    }
+
     function getSigningUrl(contract: Contract): string {
         return `/sign/${contract.public_token}`
     }
@@ -440,6 +449,7 @@ export function useContracts() {
         createContract,
         openContract,
         voidContract,
+        deleteContract,
         getSigningUrl,
         fetchContractSignatories,
         fetchContractSignatures,

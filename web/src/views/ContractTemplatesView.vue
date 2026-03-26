@@ -130,10 +130,11 @@ function formatDate(d: string): string {
             v-if="showModal"
             :title="editingTemplate ? 'Edit Template' : 'New Template'"
             size="lg"
+            class="modal-wide"
             @close="closeModal"
         >
             <div class="modal-form">
-                <SyvoraFormField label="Name">
+                <SyvoraFormField label="Name *">
                     <SyvoraInput
                         v-model="form.name"
                         placeholder="e.g. Standard Exclusive Recording Deal"
@@ -154,7 +155,7 @@ function formatDate(d: string): string {
                     />
                 </SyvoraFormField>
 
-                <SyvoraFormField label="Contract Body">
+                <SyvoraFormField label="Contract Body *">
                     <SyvoraTextarea
                         v-model="form.body"
                         :rows="16"
@@ -181,6 +182,8 @@ function formatDate(d: string): string {
 </template>
 
 <style scoped>
+.modal-wide :deep(.syvora-modal--lg) { max-width: 840px; }
+
 .page {
     max-width: 960px;
     margin: 0 auto;

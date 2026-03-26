@@ -15,7 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const {
     contracts, templates, loading, fetchContracts, fetchTemplates,
-    createContract, openContract, voidContract, getSigningUrl,
+    createContract, openContract, voidContract, deleteContract, getSigningUrl,
     fetchContractSignatories, fetchContractSignatures,
 } = useContracts()
 const { artists, fetchArtists } = useArtists()
@@ -151,6 +151,11 @@ async function handleVoid(c: Contract) {
     try { await voidContract(c.id) } catch (e: any) { alert(e.message) }
 }
 
+async function handleDelete(c: Contract) {
+    if (!confirm(`Permanently delete voided contract "${c.title}"? This cannot be undone.`)) return
+    try { await deleteContract(c.id) } catch (e: any) { alert(e.message) }
+}
+
 async function copySigningLink(c: Contract) {
     const url = window.location.origin + getSigningUrl(c)
     await navigator.clipboard.writeText(url)
@@ -251,6 +256,7 @@ onMounted(async () => {
                             {{ expandedContractId === c.id ? 'Hide' : 'View' }}
                         </SyvoraButton>
                         <SyvoraButton v-if="c.status !== 'fully_signed' && c.status !== 'voided'" variant="ghost" size="sm" class="btn-danger" @click="handleVoid(c)">Void</SyvoraButton>
+                        <SyvoraButton v-if="c.status === 'voided'" variant="ghost" size="sm" class="btn-danger" @click="handleDelete(c)">Delete</SyvoraButton>
                     </div>
                 </div>
 
@@ -280,7 +286,7 @@ onMounted(async () => {
     </div>
 
     <!-- Multi-step creation modal -->
-    <SyvoraModal v-if="showModal" title="New Contract" size="lg" @close="showModal = false">
+    <SyvoraModal v-if="showModal" title="New Contract" size="lg" class="modal-wide" @close="showModal = false">
         <SyvoraStepIndicator :steps="['Template', 'Details', 'Signatories']" :active-step="step - 1" />
 
         <!-- Step 1: Template -->
@@ -302,23 +308,24 @@ onMounted(async () => {
 
         <!-- Step 2: Details -->
         <div v-if="step === 2" class="modal-form">
-            <SyvoraFormField label="Title" for="c-title">
+            <SyvoraFormField label="Title *" for="c-title">
                 <SyvoraInput id="c-title" v-model="formTitle" placeholder="e.g. Recording Agreement — Album Name" />
             </SyvoraFormField>
             <div class="form-row">
-                <SyvoraFormField label="Artist" for="c-artist" class="flex-1">
+                <SyvoraFormField label="Artist *" for="c-artist" class="flex-1">
                     <select id="c-artist" class="native-select" v-model="formArtistId">
                         <option value="">Select artist…</option>
                         <option v-for="a in artists" :key="a.id" :value="a.id">{{ a.name }}</option>
                     </select>
                 </SyvoraFormField>
-                <SyvoraFormField label="Release (optional)" for="c-release" class="flex-1">
+                <SyvoraFormField label="Release" for="c-release" class="flex-1">
                     <select id="c-release" class="native-select" v-model="formReleaseId">
                         <option value="">None</option>
                         <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.title }} ({{ r.artist }})</option>
                     </select>
                 </SyvoraFormField>
             </div>
+            <p class="required-hint">* Required fields. All other fields are optional and will be used to fill template placeholders.</p>
             <div class="form-row">
                 <SyvoraFormField label="Effective Date" for="c-date" class="flex-1">
                     <SyvoraInput id="c-date" v-model="formEffectiveDate" type="date" />
@@ -356,7 +363,7 @@ onMounted(async () => {
                     <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="removeSignatory(i)">Remove</SyvoraButton>
                 </div>
                 <div class="form-row">
-                    <SyvoraFormField label="Role Label" class="flex-1">
+                    <SyvoraFormField label="Role Label *" class="flex-1">
                         <SyvoraInput v-model="s.display_name" placeholder="e.g. Founder" />
                     </SyvoraFormField>
                     <SyvoraFormField label="Signing Order" class="signing-order-field">
@@ -364,14 +371,14 @@ onMounted(async () => {
                     </SyvoraFormField>
                 </div>
                 <div class="form-row">
-                    <SyvoraFormField label="Legal Name" class="flex-1">
+                    <SyvoraFormField label="Legal Name *" class="flex-1">
                         <SyvoraInput v-model="s.legal_name" placeholder="Full legal name" />
                     </SyvoraFormField>
                     <SyvoraFormField label="Email" class="flex-1">
                         <SyvoraInput v-model="s.email" type="email" placeholder="Optional" />
                     </SyvoraFormField>
                 </div>
-                <SyvoraFormField label="Address">
+                <SyvoraFormField label="Address *">
                     <SyvoraTextarea v-model="s.address" :rows="2" placeholder="Postal address" />
                 </SyvoraFormField>
                 <SyvoraFormField label="Date of Birth">
@@ -404,6 +411,16 @@ onMounted(async () => {
 
 .page-header-actions { display: flex; gap: 0.75rem; align-items: center; }
 .templates-link { text-decoration: none; }
+
+.modal-wide :deep(.syvora-modal--lg) { max-width: 840px; }
+
+.required-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin: 0;
+    padding: 0.25rem 0 0.5rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
 
 /* ── Contract list ────────────────────────────────────────────────────────── */
 .contract-list { display: flex; flex-direction: column; gap: 1rem; }
