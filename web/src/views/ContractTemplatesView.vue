@@ -4,8 +4,10 @@ import { RouterLink } from 'vue-router'
 import { useContracts, type ContractTemplate } from '../composables/useContracts'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraCard,
+    SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraCard, useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 const { templates, loading, fetchTemplates, createTemplate, updateTemplate, deleteTemplate } = useContracts()
 
@@ -81,7 +83,7 @@ function formatDate(d: string): string {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ 'is-mobile': isMobile }">
         <div class="page-header">
             <div>
                 <h1 class="page-title">Contract Templates</h1>
@@ -291,4 +293,12 @@ function formatDate(d: string): string {
     font-size: 0.875rem;
     margin: 0;
 }
+
+.page.is-mobile { padding: 0 0.25rem; }
+.page.is-mobile .page-header { flex-direction: column; gap: 0.75rem; }
+.page.is-mobile .page-header-actions { width: 100%; }
+.page.is-mobile .page-header-actions a,
+.page.is-mobile .page-header-actions > * { flex: 1; }
+.page.is-mobile .template-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+.page.is-mobile .template-meta { flex-wrap: wrap; }
 </style>

@@ -12,8 +12,10 @@ import type { Contract, ContractSignatory, ContractSignature } from '../composab
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
-    SyvoraCard, SyvoraStepIndicator,
+    SyvoraCard, SyvoraStepIndicator, useIsMobile,
 } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 const route = useRoute()
 const router = useRouter()
@@ -306,7 +308,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="page">
+    <div class="page" :class="{ 'is-mobile': isMobile }">
         <!-- Header -->
         <div class="page-header">
             <div>
@@ -637,4 +639,17 @@ onMounted(async () => {
 .error-msg { color: var(--color-error, #f87171); font-size: 0.875rem; margin: 0.5rem 0 0; }
 
 .btn-danger { color: var(--color-error, #f87171) !important; }
+
+/* ── Mobile responsive ────────────────────────────────────────────────────── */
+.page.is-mobile { padding: 0 0.25rem; }
+.page.is-mobile .page-header { flex-direction: column; gap: 0.75rem; }
+.page.is-mobile .page-header-actions { width: 100%; }
+.page.is-mobile .page-header-actions > * { flex: 1; }
+.page.is-mobile .contract-header { flex-direction: column; gap: 0.75rem; }
+.page.is-mobile .contract-actions { flex-wrap: wrap; gap: 0.375rem; }
+.page.is-mobile .form-row { flex-direction: column; gap: 0; }
+.page.is-mobile .signing-order-field { max-width: 100%; }
+.page.is-mobile .signatory-row { flex-wrap: wrap; gap: 0.5rem; }
+.page.is-mobile .signatory-role { min-width: unset; width: 100%; }
+.page.is-mobile .signatory-name { width: 100%; flex: unset; }
 </style>

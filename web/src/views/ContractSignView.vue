@@ -4,7 +4,9 @@ import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import jsPDF from 'jspdf'
 import SignatureCanvas from '../components/SignatureCanvas.vue'
-import { SyvoraButton, SyvoraCard } from '@syvora/ui'
+import { SyvoraButton, SyvoraCard, useIsMobile } from '@syvora/ui'
+
+const isMobile = useIsMobile()
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -383,7 +385,7 @@ onMounted(fetchContract)
 </script>
 
 <template>
-    <div class="sign-page">
+    <div class="sign-page" :class="{ 'is-mobile': isMobile }">
         <!-- Loading -->
         <div v-if="loading" class="sign-loading">
             <p>Loading contract…</p>
@@ -520,4 +522,11 @@ onMounted(fetchContract)
 .signing-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
 .legal-notice { font-size: 0.75rem; color: var(--color-text-muted); line-height: 1.5; margin-top: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.03); border-radius: var(--radius-sm); }
 .error-msg { color: var(--color-error); font-size: 0.875rem; margin-top: 0.5rem; }
+
+.sign-page.is-mobile { padding: 1rem 0.75rem; }
+.sign-page.is-mobile .sign-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+.sign-page.is-mobile .sign-logo { width: 56px; height: 56px; }
+.sign-page.is-mobile .sign-signatory { flex-direction: column; gap: 0.75rem; }
+.sign-page.is-mobile .sign-signatory-status { align-items: flex-start; }
+.sign-page.is-mobile .signing-actions { flex-wrap: wrap; }
 </style>
