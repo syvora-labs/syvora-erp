@@ -263,6 +263,14 @@ export function useContracts() {
             .from('contracts')
             .insert({
                 ...contractFields,
+                template_id: contractFields.template_id || null,
+                release_id: contractFields.release_id || null,
+                effective_date: contractFields.effective_date || null,
+                territory: contractFields.territory || null,
+                term: contractFields.term || null,
+                exclusivity: contractFields.exclusivity || null,
+                royalty_rate: contractFields.royalty_rate || null,
+                advance: contractFields.advance || null,
                 status: 'draft',
                 created_by: user?.id,
                 mandator_id: mandator.value?.id,
@@ -275,6 +283,9 @@ export function useContracts() {
             const signatoryRows = signatories.map(s => ({
                 ...s,
                 contract_id: contractData.id,
+                date_of_birth: s.date_of_birth || null,
+                email: s.email || null,
+                user_id: s.user_id || null,
             }))
             const { error: sigError } = await supabase
                 .from('contract_signatories')
