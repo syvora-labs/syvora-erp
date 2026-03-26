@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useArtists, type Artist, type ArtistNote, type ArtistShow, type ArtistBooking } from '../composables/useArtists'
+import { useContracts, type Contract } from '../composables/useContracts'
+import { useMandator } from '../composables/useMandator'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
@@ -21,10 +23,14 @@ const {
     fetchBookings, createBooking, updateBooking, deleteBooking,
 } = useArtists()
 
+const { fetchContractsByArtist } = useContracts()
+const { contractsEnabled } = useMandator()
+
 const artist = ref<Artist | null>(null)
 const notes = ref<ArtistNote[]>([])
 const shows = ref<ArtistShow[]>([])
 const bookings = ref<ArtistBooking[]>([])
+const artistContracts = ref<Contract[]>([])
 const loadingArtist = ref(true)
 const loadingNotes = ref(true)
 const loadingShows = ref(true)
@@ -40,6 +46,9 @@ const tabs = computed<TabItem[]>(() => {
         items.push({ key: 'bookings', label: 'Bookings', count: bookings.value.length })
     }
     items.push({ key: 'notes', label: 'Notes', count: notes.value.length })
+    if (contractsEnabled.value) {
+        items.push({ key: 'contracts', label: 'Contracts', count: artistContracts.value.length })
+    }
     return items
 })
 
@@ -90,6 +99,9 @@ onMounted(async () => {
 
     const promises: Promise<void>[] = [loadNotes(), loadShows()]
     if (artist.value?.is_managed) promises.push(loadBookings())
+    if (contractsEnabled.value) {
+        fetchContractsByArtist(artistId.value).then(data => { artistContracts.value = data })
+    }
     await Promise.all(promises)
 })
 
@@ -324,6 +336,15 @@ async function handleDeleteBooking(booking: ArtistBooking) {
     }
 }
 
+function contractStatusClass(status: string): string {
+    const map: Record<string, string> = {
+        draft: 'badge-deposit', open: 'badge-warning',
+        partially_signed: 'badge-claim', fully_signed: 'badge-success',
+        voided: 'badge-disabled',
+    }
+    return map[status] ?? 'badge-deposit'
+}
+
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
@@ -480,6 +501,21 @@ function formatDateTime(iso: string) {
                     </div>
                 </div>
             </div>
+            <!-- Contracts tab -->
+            <template v-if="activeTab === 'contracts' && contractsEnabled">
+                <div class="tab-content">
+                    <div v-if="artistContracts.length === 0" class="empty-tab">No contracts linked to this artist.</div>
+                    <div v-else class="contracts-tab-list">
+                        <div v-for="c in artistContracts" :key="c.id" class="contract-tab-row">
+                            <span class="badge" :class="contractStatusClass(c.status)">{{ c.status.replace(/_/g, ' ') }}</span>
+                            <span class="contract-tab-title">{{ c.title }}</span>
+                            <span v-if="c.release_title" class="contract-tab-release">{{ c.release_title }}</span>
+                            <span class="contract-tab-progress">{{ c.signature_count }}/{{ c.signatory_count }} signed</span>
+                            <RouterLink to="/contracts" class="contract-tab-link">View</RouterLink>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </template>
 
         <div v-else class="loading-text">Artist not found.</div>
@@ -1038,5 +1074,61 @@ function formatDateTime(iso: string) {
 .mobile .section-header {
     flex-wrap: wrap;
     gap: 0.75rem;
+}
+
+/* Contracts tab */
+.empty-tab {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.contracts-tab-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.contract-tab-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    font-size: 0.875rem;
+}
+
+.contract-tab-row:last-child {
+    border-bottom: none;
+}
+
+.contract-tab-title {
+    font-weight: 600;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contract-tab-release {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+}
+
+.contract-tab-progress {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    flex-shrink: 0;
+}
+
+.contract-tab-link {
+    color: var(--color-accent);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    flex-shrink: 0;
+}
+
+.contract-tab-link:hover {
+    text-decoration: underline;
 }
 </style>

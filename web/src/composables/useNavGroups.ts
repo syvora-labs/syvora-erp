@@ -36,6 +36,7 @@ const GROUP_DEFS: { label: string; items: { route: string; label: string; keywor
             { route: 'associations', label: 'Associations', keywords: ['association', 'organization', 'partner'] },
             { route: 'meetings', label: 'Meetings', keywords: ['meeting', 'agenda', 'minutes', 'notes'] },
             { route: 'roadmap', label: 'Roadmap', keywords: ['roadmap', 'timeline', 'planning', 'schedule', 'gantt'] },
+            { route: 'contracts', label: 'Contracts', keywords: ['contract', 'agreement', 'signing', 'legal'] },
         ],
     },
 ]

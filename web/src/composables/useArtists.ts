@@ -5,6 +5,8 @@ export interface Artist {
     id: string
     name: string
     picture_url: string | null
+    address: string | null
+    date_of_birth: string | null
     is_managed: boolean
     managed_by: string | null
     created_by: string | null
@@ -106,7 +108,7 @@ export function useArtists() {
         loading.value = false
     }
 
-    async function createArtist(payload: { name: string; is_managed?: boolean; managed_by?: string | null }): Promise<Artist> {
+    async function createArtist(payload: { name: string; is_managed?: boolean; managed_by?: string | null; address?: string | null; date_of_birth?: string | null }): Promise<Artist> {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
             .from('artists')
@@ -118,7 +120,7 @@ export function useArtists() {
         return data as Artist
     }
 
-    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null; is_managed?: boolean; managed_by?: string | null }) {
+    async function updateArtist(id: string, payload: { name?: string; picture_url?: string | null; is_managed?: boolean; managed_by?: string | null; address?: string | null; date_of_birth?: string | null }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase
             .from('artists')
