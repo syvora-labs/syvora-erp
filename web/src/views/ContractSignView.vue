@@ -8,6 +8,7 @@ const route = useRoute()
 const token = computed(() => route.params.token as string)
 
 const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sign-contract`
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
 // State
 const loading = ref(true)
@@ -48,7 +49,9 @@ async function fetchContract() {
     loading.value = true
     error.value = ''
     try {
-        const res = await fetch(`${EDGE_FN_URL}?token=${token.value}`)
+        const res = await fetch(`${EDGE_FN_URL}?token=${token.value}`, {
+            headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+        })
         if (!res.ok) { error.value = 'Contract not found'; return }
         const data = await res.json()
         if (data.error) { error.value = data.error; return }
@@ -73,7 +76,7 @@ async function submitSignature() {
     try {
         const res = await fetch(EDGE_FN_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
             body: JSON.stringify({
                 token: token.value,
                 signatory_id: selectedSignatoryId.value,
