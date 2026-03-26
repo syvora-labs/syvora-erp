@@ -7,6 +7,7 @@ import type { Mandator, MandatorFormData } from '../composables/useMandator'
 import {
     SyvoraCard, SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraEmptyState, SyvoraAvatar, SyvoraTabs,
+    SyvoraTextarea,
     useIsMobile,
 } from '@syvora/ui'
 
@@ -60,6 +61,16 @@ const savingMandator = ref(false)
 const mandatorError = ref('')
 const editingMandatorId = ref<string | null>(null)
 const mandatorForm = ref<MandatorFormData>(getDefaultForm())
+const mandatorExtraForm = ref({ label_address: '', label_uid: '', contract_logo_url: '' })
+const mandatorLogoFile = ref<File | null>(null)
+const mandatorLogoPreview = ref<string | null>(null)
+
+function onLogoFilePick(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    mandatorLogoFile.value = file
+    mandatorLogoPreview.value = URL.createObjectURL(file)
+}
 
 onMounted(async () => {
     fetchUsers()
@@ -197,6 +208,13 @@ async function assignMandator(userId: string, mandatorId: string) {
 function openMandatorModal(m?: Mandator) {
     editingMandatorId.value = m?.id ?? null
     mandatorForm.value = getDefaultForm(m)
+    mandatorExtraForm.value = {
+        label_address: m?.label_address ?? '',
+        label_uid: m?.label_uid ?? '',
+        contract_logo_url: m?.contract_logo_url ?? '',
+    }
+    mandatorLogoPreview.value = m?.contract_logo_url ?? null
+    mandatorLogoFile.value = null
     mandatorError.value = ''
     showMandatorModal.value = true
 }
@@ -209,12 +227,33 @@ async function saveMandator() {
     savingMandator.value = true
     mandatorError.value = ''
     try {
+        let logoUrl = mandatorExtraForm.value.contract_logo_url
+        if (mandatorLogoFile.value) {
+            const mandatorId = editingMandatorId.value ?? crypto.randomUUID()
+            const ext = mandatorLogoFile.value.name.split('.').pop() ?? 'png'
+            const path = `mandators/${mandatorId}/logo.${ext}`
+            await adminClient.storage.from('contract-logos').upload(path, mandatorLogoFile.value, { upsert: true })
+            const { data: urlData } = adminClient.storage.from('contract-logos').getPublicUrl(path)
+            logoUrl = urlData.publicUrl
+        }
+        const extraPayload = {
+            label_address: mandatorExtraForm.value.label_address || null,
+            label_uid: mandatorExtraForm.value.label_uid || null,
+            contract_logo_url: logoUrl || null,
+        }
         if (editingMandatorId.value) {
             await updateMandator(editingMandatorId.value, mandatorForm.value, currentProfile.value?.id)
+            await adminClient.from('mandators').update(extraPayload).eq('id', editingMandatorId.value)
         } else {
             await createMandator(mandatorForm.value, currentProfile.value?.id)
+            await fetchMandators()
+            const created = mandators.value.find(m => m.name === mandatorForm.value.name.trim())
+            if (created) {
+                await adminClient.from('mandators').update(extraPayload).eq('id', created.id)
+            }
         }
         showMandatorModal.value = false
+        await fetchMandators()
     } catch (e: any) {
         mandatorError.value = e.message ?? 'Failed to save mandator.'
     } finally {
@@ -403,6 +442,21 @@ function formatDate(d: string) {
                     <span>{{ mod.label }}</span>
                 </label>
             </div>
+
+            <SyvoraFormField label="Contract Logo" for="cm-logo">
+                <div class="logo-upload">
+                    <img v-if="mandatorLogoPreview" :src="mandatorLogoPreview" class="logo-preview" alt="Logo" />
+                    <input type="file" accept="image/*" @change="onLogoFilePick" id="cm-logo" />
+                </div>
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Label Address" for="cm-address">
+                <SyvoraTextarea id="cm-address" v-model="mandatorExtraForm.label_address" placeholder="Registered postal address" :rows="2" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Label UID" for="cm-uid">
+                <SyvoraInput id="cm-uid" v-model="mandatorExtraForm.label_uid" placeholder="CHE-123.456.789" />
+            </SyvoraFormField>
 
             <p v-if="mandatorError" class="error-msg">{{ mandatorError }}</p>
         </div>
@@ -680,5 +734,19 @@ function formatDate(d: string) {
 
 .mobile .mandator-actions {
     width: 100%;
+}
+
+.logo-upload {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo-preview {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
 }
 </style>
