@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { marked } from 'marked'
 import { useContracts } from '../composables/useContracts'
@@ -18,7 +18,7 @@ const route = useRoute()
 const router = useRouter()
 const {
     contracts, templates, loading, fetchContracts, fetchTemplates,
-    createContract, openContract, voidContract, deleteContract, getSigningUrl,
+    createContract, openContract, voidContract, deleteContract, archiveContract, getSigningUrl,
     fetchContractSignatories, fetchContractSignatures,
 } = useContracts()
 const { artists, fetchArtists } = useArtists()
@@ -159,6 +159,16 @@ async function handleDelete(c: Contract) {
     try { await deleteContract(c.id) } catch (e: any) { alert(e.message) }
 }
 
+async function handleArchive(c: Contract) {
+    if (!confirm(`Archive contract "${c.title}"?`)) return
+    try { await archiveContract(c.id) } catch (e: any) { alert(e.message) }
+}
+
+const showArchived = ref(false)
+const activeContracts = computed(() => contracts.value.filter(c => !c.is_archived))
+const archivedContracts = computed(() => contracts.value.filter(c => c.is_archived))
+const displayedContracts = computed(() => showArchived.value ? archivedContracts.value : activeContracts.value)
+
 async function copySigningLink(c: Contract) {
     const url = window.location.origin + getSigningUrl(c)
     await navigator.clipboard.writeText(url)
@@ -240,9 +250,21 @@ onMounted(async () => {
         <div v-if="loading" class="loading-text">Loading contracts…</div>
         <SyvoraEmptyState v-else-if="contracts.length === 0">No contracts yet.</SyvoraEmptyState>
 
-        <!-- Contract list -->
-        <div v-else class="contract-list">
-            <SyvoraCard v-for="c in contracts" :key="c.id" class="contract-card">
+        <!-- Archive toggle -->
+        <div v-else>
+            <div v-if="archivedContracts.length > 0" class="archive-toggle">
+                <button class="archive-toggle-btn" @click="showArchived = !showArchived">
+                    {{ showArchived ? 'Show Active' : `Show Archived (${archivedContracts.length})` }}
+                </button>
+            </div>
+
+            <SyvoraEmptyState v-if="displayedContracts.length === 0">
+                {{ showArchived ? 'No archived contracts.' : 'No active contracts.' }}
+            </SyvoraEmptyState>
+
+            <!-- Contract list -->
+            <div v-else class="contract-list">
+                <SyvoraCard v-for="c in displayedContracts" :key="c.id" class="contract-card" :class="{ 'is-archived': c.is_archived }">
                 <div class="contract-header">
                     <div class="contract-info">
                         <h3 class="contract-title">{{ c.title }}</h3>
@@ -263,6 +285,7 @@ onMounted(async () => {
                             {{ expandedContractId === c.id ? 'Hide' : 'View' }}
                         </SyvoraButton>
                         <SyvoraButton v-if="c.status !== 'fully_signed' && c.status !== 'voided'" variant="ghost" size="sm" class="btn-danger" @click="handleVoid(c)">Void</SyvoraButton>
+                        <SyvoraButton v-if="c.status === 'fully_signed' && !c.is_archived" variant="ghost" size="sm" @click="handleArchive(c)">Archive</SyvoraButton>
                         <SyvoraButton v-if="c.status === 'voided'" variant="ghost" size="sm" class="btn-danger" @click="handleDelete(c)">Delete</SyvoraButton>
                     </div>
                 </div>
@@ -289,6 +312,7 @@ onMounted(async () => {
                     </div>
                 </div>
             </SyvoraCard>
+            </div>
         </div>
     </div>
 
@@ -418,6 +442,15 @@ onMounted(async () => {
 
 .page-header-actions { display: flex; gap: 0.75rem; align-items: center; }
 .templates-link { text-decoration: none; }
+
+.archive-toggle { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.archive-toggle-btn {
+    background: none; border: none; color: var(--color-accent); cursor: pointer;
+    font-size: 0.8125rem; padding: 0;
+}
+.archive-toggle-btn:hover { text-decoration: underline; }
+
+.contract-card.is-archived { opacity: 0.6; }
 
 .modal-wide :deep(.syvora-modal--lg) { max-width: 840px; }
 

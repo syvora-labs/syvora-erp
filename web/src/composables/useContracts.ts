@@ -34,6 +34,7 @@ export interface Contract {
     royalty_rate: string | null
     advance: string | null
     concluded_at: string | null
+    is_archived: boolean
     voided_at: string | null
     voided_by: string | null
     created_by: string | null
@@ -409,6 +410,16 @@ export function useContracts() {
         contracts.value = contracts.value.filter(c => c.id !== id)
     }
 
+    async function archiveContract(id: string) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { error } = await supabase
+            .from('contracts')
+            .update({ is_archived: true, updated_by: user?.id })
+            .eq('id', id)
+        if (error) throw error
+        await fetchContracts()
+    }
+
     function getSigningUrl(contract: Contract): string {
         return `/sign/${contract.public_token}`
     }
@@ -450,6 +461,7 @@ export function useContracts() {
         openContract,
         voidContract,
         deleteContract,
+        archiveContract,
         getSigningUrl,
         fetchContractSignatories,
         fetchContractSignatures,
