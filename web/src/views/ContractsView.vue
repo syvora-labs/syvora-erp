@@ -18,7 +18,7 @@ const route = useRoute()
 const router = useRouter()
 const {
     contracts, templates, loading, fetchContracts, fetchTemplates,
-    createContract, openContract, voidContract, deleteContract, archiveContract, getSigningUrl,
+    createContract, updateContract, openContract, voidContract, deleteContract, archiveContract, getSigningUrl,
     fetchContractSignatories, fetchContractSignatures,
 } = useContracts()
 const { artists, fetchArtists } = useArtists()
@@ -27,6 +27,7 @@ const { releases, fetchReleases } = useReleases()
 
 // Modal state
 const showModal = ref(false)
+const editingContractId = ref<string | null>(null)
 const step = ref(1)
 const saving = ref(false)
 const error = ref('')
@@ -75,6 +76,7 @@ function getDefaultSignatories() {
 }
 
 function openCreate(prefillArtistId?: string, prefillReleaseId?: string, prefillReleaseTitle?: string) {
+    editingContractId.value = null
     step.value = 1
     selectedTemplateId.value = null
     customBody.value = ''
@@ -101,6 +103,36 @@ function openCreateFromRelease(releaseId: string, artistId: string | null, relea
     openCreate(resolvedArtistId ?? '', releaseId, releaseTitle)
 }
 
+async function openEdit(c: Contract) {
+    editingContractId.value = c.id
+    step.value = 1
+    selectedTemplateId.value = c.template_id
+    customBody.value = c.body_snapshot
+    formTitle.value = c.title
+    formArtistId.value = c.artist_id
+    formReleaseId.value = c.release_id ?? ''
+    formEffectiveDate.value = c.effective_date ?? ''
+    formTerritory.value = c.territory ?? ''
+    formTerm.value = c.term ?? ''
+    formExclusivity.value = c.exclusivity ?? 'Exclusive'
+    formRoyaltyRate.value = c.royalty_rate ?? ''
+    formAdvance.value = c.advance ?? ''
+    // Load existing signatories
+    const sigs = await fetchContractSignatories(c.id)
+    formSignatories.value = sigs.map(s => ({
+        role: s.role,
+        display_name: s.display_name,
+        legal_name: s.legal_name,
+        address: s.address,
+        date_of_birth: s.date_of_birth ?? '',
+        email: s.email ?? '',
+        user_id: s.user_id ?? '',
+        signing_order: s.signing_order,
+    }))
+    error.value = ''
+    showModal.value = true
+}
+
 watch(formArtistId, (id) => {
     if (!id) return
     const artist = artists.value.find(a => a.id === id)
@@ -122,7 +154,7 @@ async function saveContract() {
     error.value = ''
     try {
         const selectedTemplate = templates.value.find(t => t.id === selectedTemplateId.value)
-        await createContract({
+        const payload = {
             template_id: selectedTemplateId.value,
             artist_id: formArtistId.value,
             release_id: formReleaseId.value || null,
@@ -135,7 +167,12 @@ async function saveContract() {
             royalty_rate: formRoyaltyRate.value || null,
             advance: formAdvance.value || null,
             signatories: formSignatories.value.filter(s => s.legal_name.trim()),
-        })
+        }
+        if (editingContractId.value) {
+            await updateContract(editingContractId.value, payload)
+        } else {
+            await createContract(payload)
+        }
         showModal.value = false
     } catch (e: any) {
         error.value = e.message ?? 'Failed to create contract.'
@@ -277,6 +314,7 @@ onMounted(async () => {
                         </div>
                     </div>
                     <div class="contract-actions">
+                        <SyvoraButton v-if="c.status === 'draft'" variant="ghost" size="sm" @click="openEdit(c)">Edit</SyvoraButton>
                         <SyvoraButton v-if="c.status === 'draft'" variant="ghost" size="sm" @click="handleOpen(c)">Open</SyvoraButton>
                         <SyvoraButton v-if="c.status !== 'draft' && c.status !== 'voided'" variant="ghost" size="sm" @click="copySigningLink(c)">
                             {{ copiedId === c.id ? 'Copied!' : 'Copy Link' }}
@@ -317,7 +355,7 @@ onMounted(async () => {
     </div>
 
     <!-- Multi-step creation modal -->
-    <SyvoraModal v-if="showModal" title="New Contract" size="lg" class="modal-wide" @close="showModal = false">
+    <SyvoraModal v-if="showModal" :title="editingContractId ? 'Edit Contract' : 'New Contract'" size="lg" class="modal-wide" @close="showModal = false">
         <SyvoraStepIndicator :steps="['Template', 'Details', 'Signatories']" :active-step="step - 1" />
 
         <!-- Step 1: Template -->
@@ -425,7 +463,7 @@ onMounted(async () => {
             <SyvoraButton variant="ghost" @click="showModal = false">Cancel</SyvoraButton>
             <SyvoraButton v-if="step > 1" variant="ghost" @click="step--">Back</SyvoraButton>
             <SyvoraButton v-if="step < 3" @click="step++">Next</SyvoraButton>
-            <SyvoraButton v-if="step === 3" :loading="saving" @click="saveContract">Create Contract</SyvoraButton>
+            <SyvoraButton v-if="step === 3" :loading="saving" @click="saveContract">{{ editingContractId ? 'Save Changes' : 'Create Contract' }}</SyvoraButton>
         </template>
     </SyvoraModal>
 </template>

@@ -298,6 +298,78 @@ export function useContracts() {
         return contractData
     }
 
+    async function updateContract(id: string, form: {
+        template_id?: string | null
+        artist_id: string
+        release_id?: string | null
+        title: string
+        body_snapshot?: string
+        effective_date?: string | null
+        territory?: string | null
+        term?: string | null
+        exclusivity?: string | null
+        royalty_rate?: string | null
+        advance?: string | null
+        signatories: Array<{
+            id?: string
+            role: string
+            display_name: string
+            legal_name: string
+            address: string
+            date_of_birth?: string | null
+            email?: string | null
+            user_id?: string | null
+            signing_order: number
+        }>
+    }) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { signatories: newSignatories, ...contractFields } = form
+
+        const { error: updateError } = await supabase
+            .from('contracts')
+            .update({
+                ...contractFields,
+                template_id: contractFields.template_id || null,
+                release_id: contractFields.release_id || null,
+                effective_date: contractFields.effective_date || null,
+                territory: contractFields.territory || null,
+                term: contractFields.term || null,
+                exclusivity: contractFields.exclusivity || null,
+                royalty_rate: contractFields.royalty_rate || null,
+                advance: contractFields.advance || null,
+                updated_by: user?.id,
+            })
+            .eq('id', id)
+        if (updateError) throw updateError
+
+        // Replace signatories: delete existing, insert new
+        const { error: delError } = await supabase
+            .from('contract_signatories')
+            .delete()
+            .eq('contract_id', id)
+        if (delError) throw delError
+
+        if (newSignatories.length) {
+            const rows = newSignatories.map(s => ({
+                role: s.role,
+                display_name: s.display_name,
+                legal_name: s.legal_name,
+                address: s.address,
+                date_of_birth: s.date_of_birth || null,
+                email: s.email || null,
+                user_id: s.user_id || null,
+                signing_order: s.signing_order,
+                contract_id: id,
+            }))
+            const { error: insError } = await supabase
+                .from('contract_signatories')
+                .insert(rows)
+            if (insError) throw insError
+        }
+
+        await fetchContracts()
+    }
+
     async function openContract(id: string) {
         const { data: { user } } = await supabase.auth.getUser()
 
@@ -458,6 +530,7 @@ export function useContracts() {
         fetchContractsByArtist,
         fetchContractsByRelease,
         createContract,
+        updateContract,
         openContract,
         voidContract,
         deleteContract,
