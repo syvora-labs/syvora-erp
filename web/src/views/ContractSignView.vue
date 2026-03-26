@@ -165,7 +165,7 @@ async function exportPdf() {
         const lines: W[][] = []
         let cur: W[] = [], curW = 0
         for (const w of words) {
-            doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
+            doc.setFont('times', w.bold ? 'bold' : 'normal')
             const ww = doc.getTextWidth(w.text + ' ')
             if (curW + ww > maxW + 0.5 && cur.length) { lines.push(cur); cur = [w]; curW = ww }
             else { cur.push(w); curW += ww }
@@ -177,7 +177,7 @@ async function exportPdf() {
             if (py > startY) checkPage(lh + 1)
             let px = x
             for (const w of line) {
-                doc.setFont('helvetica', w.bold ? 'bold' : 'normal')
+                doc.setFont('times', w.bold ? 'bold' : 'normal')
                 doc.text(w.text, px, py)
                 px += doc.getTextWidth(w.text + ' ')
             }
@@ -209,7 +209,7 @@ async function exportPdf() {
 
     const titleMaxW = CW - (logoDataUrl ? LOGO_W + 6 : 0)
     doc.setFontSize(17)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('times', 'bold')
     doc.setTextColor(15, 15, 15)
     const titleLines = doc.splitTextToSize(contract.value.title, titleMaxW) as string[]
     doc.text(titleLines, ML, y)
@@ -217,7 +217,7 @@ async function exportPdf() {
 
     if (mandatorInfo.value?.name) {
         doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
+        doc.setFont('times', 'normal')
         doc.setTextColor(110, 110, 110)
         doc.text(mandatorInfo.value.name, ML, y)
         y += 5
@@ -225,7 +225,7 @@ async function exportPdf() {
 
     if (contract.value.concluded_at) {
         doc.setFontSize(8.5)
-        doc.setFont('helvetica', 'normal')
+        doc.setFont('times', 'normal')
         doc.setTextColor(34, 130, 34)
         doc.text(`Concluded: ${formatDate(contract.value.concluded_at)}`, ML, y)
         y += 5
@@ -250,21 +250,21 @@ async function exportPdf() {
 
         if (line.startsWith('# ')) {
             checkPage(14); y += 4
-            doc.setFontSize(13); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 15, 15)
+            doc.setFontSize(13); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
             const w = doc.splitTextToSize(line.slice(2), CW) as string[]
             doc.text(w, ML, y); y += w.length * 7 + 2; continue
         }
 
         if (line.startsWith('## ')) {
             checkPage(12); y += 4
-            doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(25, 25, 25)
+            doc.setFontSize(11); doc.setFont('times', 'bold'); doc.setTextColor(25, 25, 25)
             const w = doc.splitTextToSize(line.slice(3), CW) as string[]
             doc.text(w, ML, y); y += w.length * 6 + 2; continue
         }
 
         if (line.startsWith('### ')) {
             checkPage(10); y += 2
-            doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30)
+            doc.setFontSize(10); doc.setFont('times', 'bold'); doc.setTextColor(30, 30, 30)
             const w = doc.splitTextToSize(line.slice(4), CW) as string[]
             doc.text(w, ML, y); y += w.length * 5.5 + 1; continue
         }
@@ -280,7 +280,7 @@ async function exportPdf() {
             const segs = parseSegs(listMatch[3])
             const plain = segs.map(s => s.text).join(' ')
             checkPage((doc.splitTextToSize(plain, aw) as string[]).length * 5.2 + 2)
-            doc.setFontSize(9.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20)
+            doc.setFontSize(9.5); doc.setFont('times', 'normal'); doc.setTextColor(20, 20, 20)
             const bullet = /^\d/.test(listMatch[2]) ? listMatch[2] : '•'
             doc.text(bullet, bx, y)
             const h = renderPara(listMatch[3], tx, y, aw)
@@ -288,7 +288,7 @@ async function exportPdf() {
         }
 
         // Regular paragraph
-        doc.setFontSize(9.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20)
+        doc.setFontSize(9.5); doc.setFont('times', 'normal'); doc.setTextColor(20, 20, 20)
         const segs = parseSegs(line)
         const plain = segs.map(s => s.text).join(' ')
         checkPage((doc.splitTextToSize(plain, CW) as string[]).length * 5.2 + 2)
@@ -301,7 +301,7 @@ async function exportPdf() {
     doc.line(ML, y, PW - MR, y)
     doc.setLineWidth(0.15); y += 9
 
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 15, 15)
+    doc.setFontSize(11); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
     doc.text('SIGNATURES', ML, y); y += 10
 
     for (let idx = 0; idx < signatories.value.length; idx++) {
@@ -310,16 +310,16 @@ async function exportPdf() {
         checkPage(55)
 
         // Role label
-        doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(120, 120, 120)
+        doc.setFontSize(7.5); doc.setFont('times', 'bold'); doc.setTextColor(120, 120, 120)
         doc.text(s.display_name.toUpperCase(), ML, y); y += 5
 
         // Legal name
-        doc.setFontSize(10.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(15, 15, 15)
+        doc.setFontSize(10.5); doc.setFont('times', 'bold'); doc.setTextColor(15, 15, 15)
         doc.text(s.legal_name, ML, y); y += 5.5
 
         // Address
         if (s.address) {
-            doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80)
+            doc.setFontSize(8.5); doc.setFont('times', 'normal'); doc.setTextColor(80, 80, 80)
             const addrLines = doc.splitTextToSize(s.address, CW * 0.55) as string[]
             doc.text(addrLines, ML, y); y += addrLines.length * 4.5
         }
@@ -328,7 +328,7 @@ async function exportPdf() {
 
         if (sig) {
             // Signed date
-            doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(34, 120, 34)
+            doc.setFontSize(8.5); doc.setFont('times', 'normal'); doc.setTextColor(34, 120, 34)
             doc.text(`Signed: ${formatDate(sig.signed_at)}`, ML, y); y += 6
 
             // Signature image
@@ -352,7 +352,7 @@ async function exportPdf() {
                 doc.setLineWidth(0.15); y += 30
             } catch { y += 8 }
         } else {
-            doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(170, 170, 170)
+            doc.setFontSize(8); doc.setFont('times', 'normal'); doc.setTextColor(170, 170, 170)
             doc.text('(pending signature)', ML, y); y += 6
             doc.setDrawColor(170, 170, 170); doc.setLineWidth(0.25)
             doc.line(ML, y + 12, ML + 72, y + 12)
@@ -368,7 +368,7 @@ async function exportPdf() {
     for (let pg = 1; pg <= totalPg; pg++) {
         doc.setPage(pg)
         hline(PH - MB - 3, 210, 210, 210)
-        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(155, 155, 155)
+        doc.setFontSize(7.5); doc.setFont('times', 'normal'); doc.setTextColor(155, 155, 155)
         doc.text(contract.value.title, ML, PH - MB + 2)
         if (mandatorInfo.value?.name) {
             doc.text(mandatorInfo.value.name, PW / 2, PH - MB + 2, { align: 'center' })
