@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(yarn workspace:*)",
+      "Bash(git rebase:*)",
+      "Bash(git checkout:*)"
+    ]
+  }
+}
