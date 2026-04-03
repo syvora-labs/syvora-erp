@@ -65,6 +65,16 @@ const mandatorExtraForm = ref({ label_address: '', label_uid: '', contract_logo_
 const mandatorLogoFile = ref<File | null>(null)
 const mandatorLogoPreview = ref<string | null>(null)
 
+// ── Email config per mandator ──────────────────────────────────────────────
+const emailConfigForm = ref({
+    imap_host: 'imap.mail.hostpoint.ch',
+    imap_port: 993,
+    smtp_host: 'asmtp.mail.hostpoint.ch',
+    smtp_port: 465,
+    use_tls: true,
+})
+const emailConfigId = ref<string | null>(null)
+
 function onLogoFilePick(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
@@ -205,7 +215,7 @@ async function assignMandator(userId: string, mandatorId: string) {
 }
 
 // ── Mandators ───────────────────────────────────────────────────────────────
-function openMandatorModal(m?: Mandator) {
+async function openMandatorModal(m?: Mandator) {
     editingMandatorId.value = m?.id ?? null
     mandatorForm.value = getDefaultForm(m)
     mandatorExtraForm.value = {
@@ -216,6 +226,34 @@ function openMandatorModal(m?: Mandator) {
     mandatorLogoPreview.value = m?.contract_logo_url ?? null
     mandatorLogoFile.value = null
     mandatorError.value = ''
+
+    // Load email config if editing
+    emailConfigId.value = null
+    emailConfigForm.value = {
+        imap_host: 'imap.mail.hostpoint.ch',
+        imap_port: 993,
+        smtp_host: 'asmtp.mail.hostpoint.ch',
+        smtp_port: 465,
+        use_tls: true,
+    }
+    if (m?.id) {
+        const { data } = await adminClient
+            .from('mandator_email_config')
+            .select('*')
+            .eq('mandator_id', m.id)
+            .maybeSingle()
+        if (data) {
+            emailConfigId.value = data.id
+            emailConfigForm.value = {
+                imap_host: data.imap_host,
+                imap_port: data.imap_port,
+                smtp_host: data.smtp_host,
+                smtp_port: data.smtp_port,
+                use_tls: data.use_tls,
+            }
+        }
+    }
+
     showMandatorModal.value = true
 }
 
@@ -241,17 +279,37 @@ async function saveMandator() {
             label_uid: mandatorExtraForm.value.label_uid || null,
             contract_logo_url: logoUrl || null,
         }
-        if (editingMandatorId.value) {
-            await updateMandator(editingMandatorId.value, mandatorForm.value, currentProfile.value?.id)
-            await adminClient.from('mandators').update(extraPayload).eq('id', editingMandatorId.value)
+        let mandatorId = editingMandatorId.value
+        if (mandatorId) {
+            await updateMandator(mandatorId, mandatorForm.value, currentProfile.value?.id)
+            await adminClient.from('mandators').update(extraPayload).eq('id', mandatorId)
         } else {
             await createMandator(mandatorForm.value, currentProfile.value?.id)
             await fetchMandators()
             const created = mandators.value.find(m => m.name === mandatorForm.value.name.trim())
-            if (created) {
-                await adminClient.from('mandators').update(extraPayload).eq('id', created.id)
+            mandatorId = created?.id ?? null
+            if (mandatorId) {
+                await adminClient.from('mandators').update(extraPayload).eq('id', mandatorId)
             }
         }
+
+        // Save email config if email module is enabled
+        if (mandatorId && mandatorForm.value.module_email) {
+            const emailPayload = {
+                mandator_id: mandatorId,
+                ...emailConfigForm.value,
+                updated_by: currentProfile.value?.id,
+            }
+            if (emailConfigId.value) {
+                await adminClient.from('mandator_email_config')
+                    .update(emailPayload)
+                    .eq('id', emailConfigId.value)
+            } else {
+                await adminClient.from('mandator_email_config')
+                    .insert({ ...emailPayload, created_by: currentProfile.value?.id })
+            }
+        }
+
         showMandatorModal.value = false
         await fetchMandators()
     } catch (e: any) {
@@ -457,6 +515,33 @@ function formatDate(d: string) {
             <SyvoraFormField label="Label UID" for="cm-uid">
                 <SyvoraInput id="cm-uid" v-model="mandatorExtraForm.label_uid" placeholder="CHE-123.456.789" />
             </SyvoraFormField>
+
+            <template v-if="mandatorForm.module_email">
+                <div class="section-divider">Email Server Configuration</div>
+
+                <div class="field-row">
+                    <SyvoraFormField label="IMAP Host" for="cm-imap-host">
+                        <SyvoraInput id="cm-imap-host" v-model="emailConfigForm.imap_host" placeholder="imap.mail.hostpoint.ch" />
+                    </SyvoraFormField>
+                    <SyvoraFormField label="IMAP Port" for="cm-imap-port">
+                        <input id="cm-imap-port" v-model.number="emailConfigForm.imap_port" type="number" class="native-select" placeholder="993" />
+                    </SyvoraFormField>
+                </div>
+
+                <div class="field-row">
+                    <SyvoraFormField label="SMTP Host" for="cm-smtp-host">
+                        <SyvoraInput id="cm-smtp-host" v-model="emailConfigForm.smtp_host" placeholder="asmtp.mail.hostpoint.ch" />
+                    </SyvoraFormField>
+                    <SyvoraFormField label="SMTP Port" for="cm-smtp-port">
+                        <input id="cm-smtp-port" v-model.number="emailConfigForm.smtp_port" type="number" class="native-select" placeholder="465" />
+                    </SyvoraFormField>
+                </div>
+
+                <label class="module-toggle">
+                    <input type="checkbox" v-model="emailConfigForm.use_tls" />
+                    <span>Use TLS</span>
+                </label>
+            </template>
 
             <p v-if="mandatorError" class="error-msg">{{ mandatorError }}</p>
         </div>
@@ -734,6 +819,29 @@ function formatDate(d: string) {
 
 .mobile .mandator-actions {
     width: 100%;
+}
+
+.section-divider {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.field-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.field-row > * {
+    flex: 1;
+}
+
+.field-row > *:last-child {
+    max-width: 100px;
 }
 
 .logo-upload {

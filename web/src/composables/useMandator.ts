@@ -14,6 +14,7 @@ export interface Mandator {
     module_roadmap: boolean
     module_lights: boolean
     module_contracts: boolean
+    module_email: boolean
     contract_logo_url: string | null
     label_address: string | null
     label_uid: string | null
@@ -23,8 +24,8 @@ export interface Mandator {
     updated_at: string
 }
 
-export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations' | 'module_meetings' | 'module_roadmap' | 'module_lights' | 'module_contracts'
-export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations' | 'meetings' | 'roadmap' | 'lights' | 'contracts'
+export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations' | 'module_meetings' | 'module_roadmap' | 'module_lights' | 'module_contracts' | 'module_email'
+export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations' | 'meetings' | 'roadmap' | 'lights' | 'contracts' | 'email'
 
 export interface ModuleDefinition {
     route: ModuleRoute
@@ -43,6 +44,7 @@ export const MODULES: ModuleDefinition[] = [
     { route: 'roadmap', column: 'module_roadmap', label: 'Roadmap' },
     { route: 'lights', column: 'module_lights', label: 'Lights' },
     { route: 'contracts', column: 'module_contracts', label: 'Contracts' },
+    { route: 'email', column: 'module_email', label: 'Email' },
 ]
 
 export type MandatorFormData = Pick<Mandator, 'name' | ModuleKey>
@@ -59,6 +61,7 @@ const DEFAULT_FORM: MandatorFormData = {
     module_roadmap: true,
     module_lights: true,
     module_contracts: true,
+    module_email: false,
 }
 
 // ── Current user's mandator (singleton state) ───────────────────────────────
@@ -76,6 +79,7 @@ const meetingsEnabled = computed(() => mandator.value?.module_meetings ?? true)
 const roadmapEnabled = computed(() => mandator.value?.module_roadmap ?? true)
 const lightsEnabled = computed(() => mandator.value?.module_lights ?? true)
 const contractsEnabled = computed(() => mandator.value?.module_contracts ?? true)
+const emailEnabled = computed(() => mandator.value?.module_email ?? false)
 const contractLogoUrl = computed(() => mandator.value?.contract_logo_url ?? null)
 const labelAddress = computed(() => mandator.value?.label_address ?? null)
 const labelUid = computed(() => mandator.value?.label_uid ?? null)
@@ -186,6 +190,7 @@ function getDefaultForm(from?: Mandator): MandatorFormData {
             module_roadmap: from.module_roadmap,
             module_lights: from.module_lights,
             module_contracts: from.module_contracts,
+            module_email: from.module_email,
         }
     }
     return { ...DEFAULT_FORM }
@@ -210,6 +215,7 @@ export function useMandator() {
         roadmapEnabled,
         lightsEnabled,
         contractsEnabled,
+        emailEnabled,
         contractLogoUrl,
         labelAddress,
         labelUid,

@@ -18,6 +18,7 @@ import LightsView from "../views/LightsView.vue";
 import ContractsView from "../views/ContractsView.vue";
 import ContractTemplatesView from "../views/ContractTemplatesView.vue";
 import ContractSignView from "../views/ContractSignView.vue";
+import EmailView from "../views/EmailView.vue";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,6 +38,10 @@ const router = createRouter({
         { path: "/lights", component: LightsView, meta: { requiresAuth: true, module: "lights" } },
         { path: "/contracts", component: ContractsView, meta: { requiresAuth: true, module: "contracts" } },
         { path: "/contracts/templates", component: ContractTemplatesView, meta: { requiresAuth: true, module: "contracts" } },
+        { path: "/email", component: EmailView, meta: { requiresAuth: true, module: "email" } },
+        { path: "/email/compose", component: EmailView, meta: { requiresAuth: true, module: "email" } },
+        { path: "/email/:folder", component: EmailView, meta: { requiresAuth: true, module: "email" } },
+        { path: "/email/:folder/:uid", component: EmailView, meta: { requiresAuth: true, module: "email" } },
         { path: "/sign/:token", component: ContractSignView, meta: { public: true } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
