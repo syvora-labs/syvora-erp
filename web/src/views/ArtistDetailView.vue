@@ -387,7 +387,10 @@ function formatDateTime(iso: string) {
             <div v-if="activeTab === 'shows'" class="tab-content">
                 <div class="section-header">
                     <h2 class="section-title">Shows</h2>
-                    <SyvoraButton @click="openCreateShow">+ Add Show</SyvoraButton>
+                    <div class="section-actions">
+                        <SyvoraButton variant="ghost" @click="router.push(`/artists/${artistId}/schedule`)">Schedule</SyvoraButton>
+                        <SyvoraButton @click="openCreateShow">+ Add Show</SyvoraButton>
+                    </div>
                 </div>
 
                 <div v-if="loadingShows" class="loading-text">Loading shows…</div>
@@ -785,6 +788,12 @@ function formatDateTime(iso: string) {
     font-weight: 700;
     margin: 0;
     color: var(--color-text);
+}
+
+.section-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
 
 /* Shows */
