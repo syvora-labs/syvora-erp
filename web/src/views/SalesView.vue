@@ -202,7 +202,18 @@ function goToEvent(eventId: string) {
 .badge-warning { background: rgba(234, 179, 8, 0.1); color: #a16207; border: 1px solid rgba(234, 179, 8, 0.22); }
 .badge-archived { background: rgba(120, 80, 0, 0.09); color: rgba(120, 80, 0, 0.75); border: 1px solid rgba(120, 80, 0, 0.18); }
 
-.mobile .event-row-body { flex-direction: column; align-items: flex-start; gap: 1rem; }
+.mobile .page-header { flex-direction: column; align-items: flex-start; }
+.mobile .page-title { font-size: 1.375rem; }
+
+.mobile .event-row-body { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+
+.mobile .event-row-header { flex-direction: column; align-items: flex-start; gap: 0.375rem; }
+.mobile .event-name { white-space: normal; font-size: 0.9375rem; }
+
 .mobile .event-row-stats { width: 100%; justify-content: space-between; }
+.mobile .stat-value { font-size: 0.875rem; }
+.mobile .stat-label { font-size: 0.625rem; }
+
 .mobile .event-row-action { width: 100%; }
+.mobile .event-row-action :deep(button) { width: 100%; }
 </style>

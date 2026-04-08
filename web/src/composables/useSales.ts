@@ -29,6 +29,10 @@ export interface TicketOrder {
     event_id: string
     buyer_name: string
     buyer_email: string
+    buyer_birthdate: string | null
+    buyer_country: string | null
+    buyer_zipcode: string | null
+    buyer_city: string | null
     status: 'pending' | 'paid' | 'refunded' | 'expired'
     total_cents: number
     currency: string
@@ -251,6 +255,79 @@ export function useSales() {
         }
     }
 
+    async function checkInByQrToken(qrToken: string, eventId: string): Promise<{
+        success: boolean
+        message: string
+        ticket?: Ticket
+        buyerName?: string
+    }> {
+        // Find the ticket by qr_token for this event
+        const { data: ticketData, error: ticketError } = await supabase
+            .from('tickets')
+            .select('*, ticket_phases(name), ticket_orders(buyer_name, status)')
+            .eq('qr_token', qrToken)
+            .eq('event_id', eventId)
+            .single()
+
+        if (ticketError || !ticketData) {
+            return { success: false, message: 'Ticket not found for this event.' }
+        }
+
+        const orderStatus = (ticketData as any).ticket_orders?.status
+        if (orderStatus !== 'paid') {
+            return { success: false, message: `Order is not paid (status: ${orderStatus}).` }
+        }
+
+        if (ticketData.status === 'checked_in') {
+            const checkedAt = ticketData.checked_in_at
+                ? new Date(ticketData.checked_in_at).toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' })
+                : 'earlier'
+            return {
+                success: false,
+                message: `Already checked in at ${checkedAt}.`,
+                buyerName: (ticketData as any).ticket_orders?.buyer_name,
+            }
+        }
+
+        if (ticketData.status === 'cancelled') {
+            return { success: false, message: 'This ticket has been cancelled.' }
+        }
+
+        // Mark as checked in
+        const { data: { user } } = await supabase.auth.getUser()
+        const { error: updateError } = await supabase
+            .from('tickets')
+            .update({
+                status: 'checked_in',
+                checked_in_at: new Date().toISOString(),
+                checked_in_by: user?.id,
+            })
+            .eq('id', ticketData.id)
+
+        if (updateError) {
+            return { success: false, message: 'Failed to check in ticket.' }
+        }
+
+        return {
+            success: true,
+            message: 'Checked in successfully!',
+            buyerName: (ticketData as any).ticket_orders?.buyer_name,
+            ticket: {
+                id: ticketData.id,
+                order_id: ticketData.order_id,
+                phase_id: ticketData.phase_id,
+                event_id: ticketData.event_id,
+                mandator_id: ticketData.mandator_id,
+                qr_token: ticketData.qr_token,
+                status: 'checked_in',
+                checked_in_at: new Date().toISOString(),
+                checked_in_by: user?.id ?? null,
+                created_at: ticketData.created_at,
+                phase_name: (ticketData as any).ticket_phases?.name ?? '—',
+            },
+        }
+    }
+
     async function fetchEventSalesSummary(eventId: string): Promise<EventSalesSummary> {
         // Fetch phases for the event
         let query = supabase
@@ -316,6 +393,7 @@ export function useSales() {
         deletePhase,
         fetchOrders,
         fetchTickets,
+        checkInByQrToken,
         fetchEventSalesSummary,
     }
 }
