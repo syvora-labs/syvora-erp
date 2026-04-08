@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import QrScanner from 'qr-scanner'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     useSales,
@@ -22,13 +23,13 @@ const { fetchEventById } = useEvents()
 const {
     phases, orders, tickets, loading,
     fetchPhases, createPhase, updatePhase, deletePhase,
-    fetchOrders, fetchTickets,
+    fetchOrders, fetchTickets, checkInByQrToken,
     fetchEventSalesSummary,
 } = useSales()
 
 const event = ref<LabelEvent | null>(null)
 const summary = ref<EventSalesSummary | null>(null)
-const activeTab = ref<'phases' | 'orders' | 'summary'>('phases')
+const activeTab = ref<'phases' | 'orders' | 'checkin' | 'summary'>('phases')
 
 // Phase modal
 const showPhaseModal = ref(false)
@@ -39,6 +40,93 @@ const phaseForm = ref<PhaseFormData>(getDefaultPhaseForm())
 
 // Order expansion
 const expandedOrderId = ref<string | null>(null)
+
+// Check-in scanner
+const scannerVideoEl = ref<HTMLVideoElement>()
+let qrScanner: QrScanner | null = null
+const scannerActive = ref(false)
+const scannerError = ref('')
+const scanResult = ref<{ success: boolean; message: string; buyerName?: string; phaseName?: string } | null>(null)
+const scanProcessing = ref(false)
+const checkedInCount = ref(0)
+const scanHistory = ref<{ time: Date; buyerName: string; phaseName: string; success: boolean }[]>([])
+
+async function startScanner() {
+    scanResult.value = null
+    scannerError.value = ''
+    scannerActive.value = true
+    await nextTick()
+    if (!scannerVideoEl.value) return
+
+    qrScanner = new QrScanner(
+        scannerVideoEl.value,
+        async (result) => {
+            if (scanProcessing.value) return
+            scanProcessing.value = true
+            try {
+                const res = await checkInByQrToken(result.data, eventId)
+                scanResult.value = {
+                    success: res.success,
+                    message: res.message,
+                    buyerName: res.buyerName,
+                    phaseName: res.ticket?.phase_name,
+                }
+                if (res.success) {
+                    checkedInCount.value++
+                    scanHistory.value.unshift({
+                        time: new Date(),
+                        buyerName: res.buyerName ?? 'Unknown',
+                        phaseName: res.ticket?.phase_name ?? '—',
+                        success: true,
+                    })
+                } else {
+                    scanHistory.value.unshift({
+                        time: new Date(),
+                        buyerName: res.buyerName ?? 'Unknown',
+                        phaseName: '',
+                        success: false,
+                    })
+                }
+                // Brief pause before allowing next scan
+                setTimeout(() => {
+                    scanResult.value = null
+                    scanProcessing.value = false
+                }, 2000)
+            } catch {
+                scanResult.value = { success: false, message: 'Scan failed. Try again.' }
+                setTimeout(() => {
+                    scanResult.value = null
+                    scanProcessing.value = false
+                }, 2000)
+            }
+        },
+        {
+            preferredCamera: 'environment',
+            highlightScanRegion: true,
+            highlightCodeOutline: true,
+        }
+    )
+
+    try {
+        await qrScanner.start()
+    } catch (e: any) {
+        scannerActive.value = false
+        scannerError.value = e?.message ?? 'Could not access camera. Please allow camera permissions.'
+    }
+}
+
+function stopScanner() {
+    qrScanner?.stop()
+    qrScanner?.destroy()
+    qrScanner = null
+    scannerActive.value = false
+}
+
+watch(activeTab, (_tab, oldTab) => {
+    if (oldTab === 'checkin') stopScanner()
+})
+
+onBeforeUnmount(() => stopScanner())
 
 function getDefaultPhaseForm(from?: TicketPhase): PhaseFormData {
     if (from) {
@@ -140,6 +228,13 @@ function formatDate(d: string | null) {
     })
 }
 
+function formatDateShort(d: string | null) {
+    if (!d) return '—'
+    return new Date(d).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+    })
+}
+
 function formatSaleWindow(start: string | null, end: string | null) {
     const s = start ? new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Now'
     const e = end ? new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Until sold out'
@@ -186,6 +281,7 @@ const checkInRate = computed(() => {
             :tabs="[
                 { key: 'phases', label: 'Ticket Phases', count: phases.length },
                 { key: 'orders', label: 'Orders', count: orders.length },
+                { key: 'checkin', label: 'Check-In' },
                 { key: 'summary', label: 'Summary' },
             ]"
         />
@@ -270,7 +366,81 @@ const checkInRate = computed(() => {
                                 <span v-else class="badge badge-draft">—</span>
                             </span>
                         </div>
-                        <div v-if="expandedOrderId === order.id" class="order-tickets">
+                        <div v-if="expandedOrderId === order.id" class="order-detail">
+                            <div class="order-detail-grid">
+                                <div class="detail-section">
+                                    <h4 class="detail-heading">Buyer</h4>
+                                    <div class="detail-fields">
+                                        <div class="detail-field">
+                                            <span class="detail-label">Name</span>
+                                            <span class="detail-value">{{ order.buyer_name }}</span>
+                                        </div>
+                                        <div class="detail-field">
+                                            <span class="detail-label">Email</span>
+                                            <span class="detail-value">{{ order.buyer_email }}</span>
+                                        </div>
+                                        <div v-if="order.buyer_birthdate" class="detail-field">
+                                            <span class="detail-label">Birthdate</span>
+                                            <span class="detail-value">{{ formatDateShort(order.buyer_birthdate) }}</span>
+                                        </div>
+                                        <div v-if="order.buyer_city || order.buyer_zipcode" class="detail-field">
+                                            <span class="detail-label">Location</span>
+                                            <span class="detail-value">{{ [order.buyer_zipcode, order.buyer_city].filter(Boolean).join(' ') }}</span>
+                                        </div>
+                                        <div v-if="order.buyer_country" class="detail-field">
+                                            <span class="detail-label">Country</span>
+                                            <span class="detail-value">{{ order.buyer_country }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="detail-section">
+                                    <h4 class="detail-heading">Payment</h4>
+                                    <div class="detail-fields">
+                                        <div class="detail-field">
+                                            <span class="detail-label">Amount</span>
+                                            <span class="detail-value">{{ formatCurrency(order.total_cents, order.currency) }}</span>
+                                        </div>
+                                        <div class="detail-field">
+                                            <span class="detail-label">Status</span>
+                                            <span class="badge" :class="statusBadgeClass(order.status)">{{ order.status }}</span>
+                                        </div>
+                                        <div v-if="order.paid_at" class="detail-field">
+                                            <span class="detail-label">Paid at</span>
+                                            <span class="detail-value">{{ formatDate(order.paid_at) }}</span>
+                                        </div>
+                                        <div v-if="order.refunded_at" class="detail-field">
+                                            <span class="detail-label">Refunded at</span>
+                                            <span class="detail-value">{{ formatDate(order.refunded_at) }}</span>
+                                        </div>
+                                        <div v-if="order.stripe_payment_intent_id" class="detail-field">
+                                            <span class="detail-label">Stripe Payment</span>
+                                            <span class="detail-value detail-mono">{{ order.stripe_payment_intent_id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="detail-section">
+                                    <h4 class="detail-heading">Order Info</h4>
+                                    <div class="detail-fields">
+                                        <div class="detail-field">
+                                            <span class="detail-label">Order ID</span>
+                                            <span class="detail-value detail-mono">{{ order.id.slice(0, 8) }}…</span>
+                                        </div>
+                                        <div class="detail-field">
+                                            <span class="detail-label">Created</span>
+                                            <span class="detail-value">{{ formatDate(order.created_at) }}</span>
+                                        </div>
+                                        <div class="detail-field">
+                                            <span class="detail-label">Confirmation email</span>
+                                            <span v-if="order.email_sent_at" class="badge badge-success">Sent · {{ formatDate(order.email_sent_at) }}</span>
+                                            <span v-else class="badge badge-draft">Not sent</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h4 class="detail-heading" style="margin-top: 1rem;">Tickets ({{ tickets.length }})</h4>
                             <div v-for="ticket in tickets" :key="ticket.id" class="ticket-row">
                                 <span class="ticket-phase">{{ ticket.phase_name }}</span>
                                 <span class="ticket-qr" :title="ticket.qr_token">{{ ticket.qr_token.slice(0, 8) }}…</span>
@@ -282,6 +452,62 @@ const checkInRate = computed(() => {
                     </div>
                 </div>
             </SyvoraCard>
+        </template>
+
+        <!-- ── Check-In ─────────────────────────────────────────────────── -->
+        <template v-else-if="activeTab === 'checkin'">
+            <div class="checkin-layout">
+                <SyvoraCard class="scanner-card">
+                    <div v-if="!scannerActive && !scannerError" class="scanner-placeholder">
+                        <div class="scanner-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                                <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                                <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                                <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                                <rect x="7" y="7" width="10" height="10" rx="1"/>
+                            </svg>
+                        </div>
+                        <p class="scanner-hint">Scan ticket QR codes to check guests in</p>
+                        <SyvoraButton @click="startScanner">Start Camera</SyvoraButton>
+                    </div>
+
+                    <div v-else-if="scannerError" class="scanner-placeholder">
+                        <p class="error-msg">{{ scannerError }}</p>
+                        <SyvoraButton @click="startScanner">Retry</SyvoraButton>
+                    </div>
+
+                    <div v-else class="scanner-live">
+                        <div class="scanner-video-wrap">
+                            <video ref="scannerVideoEl" class="scanner-video"></video>
+
+                            <div v-if="scanResult" class="scan-overlay" :class="scanResult.success ? 'scan-ok' : 'scan-fail'">
+                                <div class="scan-overlay-icon">{{ scanResult.success ? '&#10003;' : '&#10007;' }}</div>
+                                <div class="scan-overlay-name" v-if="scanResult.buyerName">{{ scanResult.buyerName }}</div>
+                                <div class="scan-overlay-msg">{{ scanResult.message }}</div>
+                                <div class="scan-overlay-phase" v-if="scanResult.phaseName">{{ scanResult.phaseName }}</div>
+                            </div>
+                        </div>
+
+                        <div class="scanner-controls">
+                            <span class="checkin-counter">{{ checkedInCount }} checked in this session</span>
+                            <SyvoraButton variant="ghost" size="sm" @click="stopScanner">Stop Camera</SyvoraButton>
+                        </div>
+                    </div>
+                </SyvoraCard>
+
+                <div v-if="scanHistory.length > 0" class="scan-history">
+                    <h4 class="detail-heading">Scan History</h4>
+                    <div v-for="(entry, i) in scanHistory" :key="i" class="history-row" :class="{ 'history-fail': !entry.success }">
+                        <span class="history-time">{{ entry.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' }) }}</span>
+                        <span class="history-name">{{ entry.buyerName }}</span>
+                        <span v-if="entry.phaseName" class="history-phase">{{ entry.phaseName }}</span>
+                        <span class="badge" :class="entry.success ? 'badge-success' : 'badge-refunded'">
+                            {{ entry.success ? 'OK' : 'Denied' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
         </template>
 
         <!-- ── Summary ──────────────────────────────────────────────────── -->
@@ -427,11 +653,25 @@ const checkInRate = computed(() => {
 .buyer-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .buyer-email { font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.order-tickets {
-    padding: 0.5rem 0 0.5rem 1rem;
+.order-detail {
+    padding: 1rem 0 1rem 1rem;
     border-bottom: 1px solid var(--color-border-subtle);
     background: rgba(0, 0, 0, 0.015);
 }
+.order-detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+}
+.detail-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.detail-heading {
+    font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--color-text-muted); margin: 0;
+}
+.detail-fields { display: flex; flex-direction: column; gap: 0.375rem; }
+.detail-field { display: flex; flex-direction: column; gap: 0.0625rem; }
+.detail-label { font-size: 0.6875rem; color: var(--color-text-muted); }
+.detail-value { font-size: 0.8125rem; font-weight: 500; }
+.detail-mono { font-family: monospace; font-size: 0.75rem; color: var(--color-text-muted); }
 .ticket-row {
     display: flex; align-items: center; gap: 0.75rem;
     padding: 0.375rem 0; font-size: 0.8125rem;
@@ -484,6 +724,62 @@ const checkInRate = computed(() => {
 .badge-archived { background: rgba(120, 80, 0, 0.09); color: rgba(120, 80, 0, 0.75); border: 1px solid rgba(120, 80, 0, 0.18); }
 .badge-refunded { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.22); }
 .badge-checked-in { background: rgba(115, 195, 254, 0.1); color: var(--color-accent); border: 1px solid rgba(115, 195, 254, 0.22); }
+
+/* Check-In */
+.checkin-layout { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.scanner-card { overflow: hidden; }
+.scanner-placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem; padding: 3rem 1rem; text-align: center;
+}
+.scanner-icon { color: var(--color-text-muted); opacity: 0.5; }
+.scanner-hint { font-size: 0.9375rem; color: var(--color-text-muted); margin: 0; }
+
+.scanner-live { display: flex; flex-direction: column; }
+.scanner-video-wrap {
+    position: relative; width: 100%; max-width: 480px; margin: 0 auto;
+    aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-card);
+    background: #000;
+}
+.scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.scan-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.375rem; z-index: 10;
+    animation: scan-flash 0.2s ease-out;
+}
+.scan-ok { background: rgba(34, 197, 94, 0.85); color: #fff; }
+.scan-fail { background: rgba(239, 68, 68, 0.85); color: #fff; }
+
+.scan-overlay-icon { font-size: 3rem; font-weight: 800; line-height: 1; }
+.scan-overlay-name { font-size: 1.25rem; font-weight: 700; }
+.scan-overlay-msg { font-size: 0.875rem; opacity: 0.9; }
+.scan-overlay-phase { font-size: 0.8125rem; opacity: 0.75; }
+
+@keyframes scan-flash {
+    from { opacity: 0; transform: scale(1.05); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.scanner-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--color-border-subtle);
+}
+.checkin-counter { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-muted); }
+
+.scan-history { display: flex; flex-direction: column; gap: 0.5rem; }
+.history-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0; font-size: 0.8125rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+.history-fail { opacity: 0.6; }
+.history-time { font-size: 0.75rem; color: var(--color-text-muted); min-width: 80px; }
+.history-name { font-weight: 600; flex: 1; }
+.history-phase { font-size: 0.75rem; color: var(--color-text-muted); }
 
 :deep(.btn-danger) { color: var(--color-error); }
 
