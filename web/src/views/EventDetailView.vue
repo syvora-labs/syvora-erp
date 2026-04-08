@@ -38,6 +38,14 @@ const event = ref<LabelEvent | null>(null)
 const loadingEvent = ref(true)
 
 const teamAssignments = ref<TeamEventAssignment[]>([])
+const sortedTeamAssignments = computed(() =>
+    [...teamAssignments.value].sort((a, b) => {
+        const roleOrder = [...EVENT_ROLES].reverse()
+        const rankA = roleOrder.indexOf(a.event_role as any)
+        const rankB = roleOrder.indexOf(b.event_role as any)
+        return (rankA === -1 ? Infinity : rankA) - (rankB === -1 ? Infinity : rankB)
+    })
+)
 const loadingTeam = ref(true)
 
 const eventTransactions = computed(() =>
@@ -492,7 +500,7 @@ function formatAmount(tx: FinancialTransaction) {
                 </SyvoraEmptyState>
 
                 <div v-else class="items-list">
-                    <div v-for="a in teamAssignments" :key="a.id" class="item-card">
+                    <div v-for="a in sortedTeamAssignments" :key="a.id" class="item-card">
                         <div class="item-main">
                             <div class="item-info">
                                 <div class="item-name-row">
