@@ -11,6 +11,7 @@ export interface LabelEvent {
     event_date: string | null
     artwork_url: string | null
     ticket_link: string | null
+    ticket_management: 'internal' | 'external'
     is_draft: boolean
     is_archived: boolean
     created_by: string | null
@@ -103,6 +104,7 @@ export function useEvents() {
         event_date?: string | null
         artwork_url?: string | null
         ticket_link?: string | null
+        ticket_management?: 'internal' | 'external'
     }): Promise<LabelEvent> {
         const { data: { user } } = await supabase.auth.getUser()
         const { data, error } = await supabase
@@ -123,6 +125,7 @@ export function useEvents() {
         event_date?: string | null
         artwork_url?: string | null
         ticket_link?: string | null
+        ticket_management?: 'internal' | 'external'
     }) {
         const { data: { user } } = await supabase.auth.getUser()
         const { error } = await supabase

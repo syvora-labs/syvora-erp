@@ -57,6 +57,7 @@ const form = ref({
     event_date: '',
     event_time: '',
     ticket_link: '',
+    ticket_management: 'internal' as 'internal' | 'external',
 })
 const artworkFile = ref<File | null>(null)
 const artworkPreview = ref<string | null>(null)
@@ -87,7 +88,7 @@ onBeforeUnmount(() => {
 
 function openCreate() {
     editingEvent.value = null
-    form.value = { title: '', description: '', lineupRaw: '', location: '', event_date: '', event_time: '', ticket_link: '' }
+    form.value = { title: '', description: '', lineupRaw: '', location: '', event_date: '', event_time: '', ticket_link: '', ticket_management: 'internal' }
     artworkFile.value = null
     artworkPreview.value = null
     error.value = ''
@@ -105,6 +106,7 @@ function openEdit(event: LabelEvent) {
         event_date: dt ? (dt.toISOString().split('T')[0] ?? '') : '',
         event_time: dt ? dt.toTimeString().slice(0, 5) : '',
         ticket_link: event.ticket_link ?? '',
+        ticket_management: event.ticket_management ?? 'internal',
     }
     artworkFile.value = null
     artworkPreview.value = event.artwork_url ?? null
@@ -146,6 +148,7 @@ async function saveEvent() {
             location: form.value.location.trim() || null,
             event_date: buildEventDate(),
             ticket_link: form.value.ticket_link.trim() || null,
+            ticket_management: form.value.ticket_management,
         }
         if (editingEvent.value) {
             let artwork_url = editingEvent.value.artwork_url
@@ -209,6 +212,7 @@ async function handleDuplicate(event: LabelEvent) {
             location: event.location,
             event_date: event.event_date,
             ticket_link: event.ticket_link,
+            ticket_management: event.ticket_management,
         })
     } catch (e: any) {
         alert(e.message ?? 'Failed to duplicate event.')
@@ -468,6 +472,22 @@ function goToEvent(event: LabelEvent) {
                 <SyvoraInput id="ev-tickets" v-model="form.ticket_link" placeholder="https://tickets.example.com" />
             </SyvoraFormField>
 
+            <SyvoraFormField label="Ticket Management">
+                <div class="toggle-row">
+                    <label class="toggle-option" :class="{ active: form.ticket_management === 'internal' }">
+                        <input type="radio" v-model="form.ticket_management" value="internal" class="hidden-input" />
+                        Internal
+                    </label>
+                    <label class="toggle-option" :class="{ active: form.ticket_management === 'external' }">
+                        <input type="radio" v-model="form.ticket_management" value="external" class="hidden-input" />
+                        External
+                    </label>
+                </div>
+                <small class="field-hint">
+                    {{ form.ticket_management === 'internal' ? 'Tickets are managed in Sales.' : 'Tickets are managed externally. This event won\'t appear in Sales.' }}
+                </small>
+            </SyvoraFormField>
+
             <p v-if="error" class="error-msg">{{ error }}</p>
         </div>
 
@@ -666,6 +686,25 @@ function goToEvent(event: LabelEvent) {
 }
 
 :deep(.btn-danger) { color: var(--color-error); }
+
+.toggle-row {
+    display: flex; gap: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.toggle-option {
+    flex: 1; text-align: center; padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+    background: transparent; color: var(--color-text-muted);
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid var(--color-border);
+}
+.toggle-option:last-child { border-right: none; }
+.toggle-option.active {
+    background: rgba(115, 195, 254, 0.1); color: var(--color-accent);
+}
+.field-hint {
+    display: block; margin-top: 0.375rem;
+    font-size: 0.75rem; color: var(--color-text-muted);
+}
 
 .mobile .event-artwork { width: 100px; }
 </style>

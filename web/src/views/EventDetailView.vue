@@ -166,6 +166,7 @@ const editForm = ref({
     event_date: '',
     event_time: '',
     ticket_link: '',
+    ticket_management: 'internal' as 'internal' | 'external',
 })
 const artworkFile = ref<File | null>(null)
 const artworkPreview = ref<string | null>(null)
@@ -181,6 +182,7 @@ function openEdit() {
         event_date: dt ? (dt.toISOString().split('T')[0] ?? '') : '',
         event_time: dt ? dt.toTimeString().slice(0, 5) : '',
         ticket_link: event.value.ticket_link ?? '',
+        ticket_management: event.value.ticket_management ?? 'internal',
     }
     artworkFile.value = null
     artworkPreview.value = event.value.artwork_url ?? null
@@ -226,6 +228,7 @@ async function saveEdit() {
             location: editForm.value.location.trim() || null,
             event_date: buildEventDate(),
             ticket_link: editForm.value.ticket_link.trim() || null,
+            ticket_management: editForm.value.ticket_management,
             artwork_url,
         })
         event.value = await fetchEventById(eventId.value)
@@ -614,6 +617,22 @@ function formatAmount(tx: FinancialTransaction) {
                 <SyvoraInput id="ev-tickets" v-model="editForm.ticket_link" placeholder="https://tickets.example.com" />
             </SyvoraFormField>
 
+            <SyvoraFormField label="Ticket Management">
+                <div class="toggle-row">
+                    <label class="toggle-option" :class="{ active: editForm.ticket_management === 'internal' }">
+                        <input type="radio" v-model="editForm.ticket_management" value="internal" class="hidden-input" />
+                        Internal
+                    </label>
+                    <label class="toggle-option" :class="{ active: editForm.ticket_management === 'external' }">
+                        <input type="radio" v-model="editForm.ticket_management" value="external" class="hidden-input" />
+                        External
+                    </label>
+                </div>
+                <small class="field-hint">
+                    {{ editForm.ticket_management === 'internal' ? 'Tickets are managed in Sales.' : 'Tickets are managed externally. This event won\'t appear in Sales.' }}
+                </small>
+            </SyvoraFormField>
+
             <p v-if="editError" class="error-msg">{{ editError }}</p>
         </div>
         <template #footer>
@@ -813,6 +832,25 @@ function formatAmount(tx: FinancialTransaction) {
 .form-row { display: flex; gap: 0.75rem; align-items: flex-end; }
 .flex-1 { flex: 1; min-width: 0; }
 .hidden-input { display: none; }
+
+.toggle-row {
+    display: flex; gap: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;
+}
+.toggle-option {
+    flex: 1; text-align: center; padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+    background: transparent; color: var(--color-text-muted);
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid var(--color-border);
+}
+.toggle-option:last-child { border-right: none; }
+.toggle-option.active {
+    background: rgba(115, 195, 254, 0.1); color: var(--color-accent);
+}
+.field-hint {
+    display: block; margin-top: 0.375rem;
+    font-size: 0.75rem; color: var(--color-text-muted);
+}
 
 .published-notice {
     display: flex; align-items: center; gap: 0.5rem;

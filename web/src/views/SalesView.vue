@@ -17,12 +17,16 @@ const activeTab = ref<'upcoming' | 'past'>('upcoming')
 const loading = ref(false)
 const summaries = ref<Record<string, EventSalesSummary>>({})
 
+const internalEvents = computed(() =>
+    events.value.filter(e => e.ticket_management !== 'external')
+)
+
 const upcomingEvents = computed(() =>
-    events.value.filter(e => !e.event_date || new Date(e.event_date) >= new Date())
+    internalEvents.value.filter(e => !e.event_date || new Date(e.event_date) >= new Date())
 )
 
 const pastEvents = computed(() =>
-    events.value.filter(e => e.event_date && new Date(e.event_date) < new Date()).reverse()
+    internalEvents.value.filter(e => e.event_date && new Date(e.event_date) < new Date()).reverse()
 )
 
 const displayedEvents = computed(() =>
@@ -33,9 +37,9 @@ onMounted(async () => {
     loading.value = true
     try {
         await fetchEvents()
-        // Fetch summaries for all events in parallel
+        // Fetch summaries for internal events in parallel
         const results = await Promise.all(
-            events.value.map(async (event) => {
+            internalEvents.value.map(async (event) => {
                 const summary = await fetchEventSalesSummary(event.id)
                 return { eventId: event.id, summary }
             })
@@ -84,7 +88,7 @@ function goToEvent(eventId: string) {
 
         <div v-if="loading || eventsLoading" class="loading-text">Loading events…</div>
 
-        <template v-else-if="events.length === 0">
+        <template v-else-if="internalEvents.length === 0">
             <SyvoraEmptyState>
                 No events found. Create events first in the Events module.
             </SyvoraEmptyState>
