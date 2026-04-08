@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
@@ -8,6 +9,7 @@ import {
 } from '@syvora/ui'
 
 const isMobile = useIsMobile()
+const router = useRouter()
 
 const {
     activeEvents, archivedEvents, loading,
@@ -213,6 +215,10 @@ function isUpcoming(d: string | null) {
 function formatAuditDate(d: string) {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+function goToEvent(event: LabelEvent) {
+    router.push(`/events/${event.id}`)
+}
 </script>
 
 <template>
@@ -245,8 +251,9 @@ function formatAuditDate(d: string) {
                 <div
                     v-for="event in activeEvents"
                     :key="event.id"
-                    class="event-card"
+                    class="event-card event-card--clickable"
                     :class="{ 'event-card--draft': event.is_draft }"
+                    @click="goToEvent(event)"
                 >
                     <div class="event-more">
                         <button class="event-more-btn" @click.stop="toggleMenu(event.id)" aria-label="More actions">
@@ -255,7 +262,7 @@ function formatAuditDate(d: string) {
                             </svg>
                         </button>
                         <div v-if="openMenuId === event.id" class="event-more-menu">
-                            <button class="event-more-item" @click="handleDuplicate(event)">
+                            <button class="event-more-item" @click.stop="handleDuplicate(event)">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -304,19 +311,19 @@ function formatAuditDate(d: string) {
                         </div>
 
                         <div class="event-footer">
-                            <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" class="ticket-link">
+                            <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" rel="noopener noreferrer" class="ticket-link" @click.stop>
                                 Tickets ↗
                             </a>
                             <div class="event-actions">
-                                <SyvoraButton v-if="event.is_draft" size="sm" @click="handlePublish(event)">
+                                <SyvoraButton v-if="event.is_draft" size="sm" @click.stop="handlePublish(event)">
                                     Publish
                                 </SyvoraButton>
-                                <SyvoraButton v-else variant="ghost" size="sm" @click="handleUnpublish(event)">
+                                <SyvoraButton v-else variant="ghost" size="sm" @click.stop="handleUnpublish(event)">
                                     Revert to Draft
                                 </SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" @click="openEdit(event)">Edit</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" @click="handleArchive(event)">Archive</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="openEdit(event)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="handleArchive(event)">Archive</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(event)">Delete</SyvoraButton>
                             </div>
                         </div>
                     </div>
@@ -334,7 +341,8 @@ function formatAuditDate(d: string) {
                 <div
                     v-for="event in archivedEvents"
                     :key="event.id"
-                    class="event-card event-card--archived"
+                    class="event-card event-card--clickable event-card--archived"
+                    @click="goToEvent(event)"
                 >
                     <div class="event-artwork">
                         <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
@@ -368,8 +376,8 @@ function formatAuditDate(d: string) {
 
                         <div class="event-footer">
                             <div class="event-actions">
-                                <SyvoraButton variant="ghost" size="sm" @click="handleUnarchive(event)">Restore</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="handleUnarchive(event)">Restore</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(event)">Delete</SyvoraButton>
                             </div>
                         </div>
                     </div>
@@ -471,6 +479,7 @@ function formatAuditDate(d: string) {
 .event-card--archived {
     opacity: 0.6;
 }
+.event-card--clickable { cursor: pointer; }
 
 .event-artwork { width: 160px; flex-shrink: 0; overflow: hidden; border-radius: var(--radius-card) 0 0 var(--radius-card); }
 .event-artwork img { width: 100%; height: 100%; object-fit: cover; }

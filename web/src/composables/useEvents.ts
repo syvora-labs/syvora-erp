@@ -65,6 +65,36 @@ export function useEvents() {
         loading.value = false
     }
 
+    async function fetchEventById(id: string): Promise<LabelEvent | null> {
+        let query = supabase
+            .from('events')
+            .select('*')
+            .eq('id', id)
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query.single()
+        if (error) return null
+
+        const raw = data as Omit<LabelEvent, 'creator_name' | 'updater_name'>
+
+        const userIds = [raw.created_by, raw.updated_by].filter((id): id is string => !!id)
+        let profileMap: Record<string, string | null> = {}
+        if (userIds.length) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, display_name')
+                .in('id', userIds)
+            profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.display_name]))
+        }
+
+        return {
+            ...raw,
+            creator_name: raw.created_by ? (profileMap[raw.created_by] ?? null) : null,
+            updater_name: raw.updated_by ? (profileMap[raw.updated_by] ?? null) : null,
+        }
+    }
+
     async function createEvent(payload: {
         title: string
         description?: string | null
@@ -169,6 +199,7 @@ export function useEvents() {
         archivedEvents,
         loading,
         fetchEvents,
+        fetchEventById,
         createEvent,
         updateEvent,
         deleteEvent,
