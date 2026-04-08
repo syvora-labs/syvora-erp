@@ -22,6 +22,8 @@ import ContractTemplatesView from "../views/ContractTemplatesView.vue";
 import ContractSignView from "../views/ContractSignView.vue";
 import EmailView from "../views/EmailView.vue";
 import TeamView from "../views/TeamView.vue";
+import SalesView from "../views/SalesView.vue";
+import SalesEventView from "../views/SalesEventView.vue";
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -48,6 +50,8 @@ const router = createRouter({
         { path: "/email/:folder", component: EmailView, meta: { requiresAuth: true, module: "email" } },
         { path: "/email/:folder/:uid", component: EmailView, meta: { requiresAuth: true, module: "email" } },
         { path: "/team", component: TeamView, meta: { requiresAuth: true, module: "team" } },
+        { path: "/sales", component: SalesView, meta: { requiresAuth: true, module: "sales" } },
+        { path: "/sales/:eventId", component: SalesEventView, meta: { requiresAuth: true, module: "sales" } },
         { path: "/sign/:token", component: ContractSignView, meta: { public: true } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
