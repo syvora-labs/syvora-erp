@@ -66,11 +66,14 @@ export function useEvents() {
     }
 
     async function fetchEventById(id: string): Promise<LabelEvent | null> {
-        const { data, error } = await supabase
+        let query = supabase
             .from('events')
             .select('*')
             .eq('id', id)
-            .single()
+        if (mandator.value?.id) {
+            query = query.eq('mandator_id', mandator.value.id)
+        }
+        const { data, error } = await query.single()
         if (error) return null
 
         const raw = data as Omit<LabelEvent, 'creator_name' | 'updater_name'>

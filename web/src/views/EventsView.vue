@@ -262,7 +262,7 @@ function goToEvent(event: LabelEvent) {
                             </svg>
                         </button>
                         <div v-if="openMenuId === event.id" class="event-more-menu">
-                            <button class="event-more-item" @click="handleDuplicate(event)">
+                            <button class="event-more-item" @click.stop="handleDuplicate(event)">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -311,19 +311,19 @@ function goToEvent(event: LabelEvent) {
                         </div>
 
                         <div class="event-footer">
-                            <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" class="ticket-link">
+                            <a v-if="event.ticket_link && !event.is_draft" :href="event.ticket_link" target="_blank" rel="noopener noreferrer" class="ticket-link" @click.stop>
                                 Tickets ↗
                             </a>
                             <div class="event-actions">
-                                <SyvoraButton v-if="event.is_draft" size="sm" @click="handlePublish(event)">
+                                <SyvoraButton v-if="event.is_draft" size="sm" @click.stop="handlePublish(event)">
                                     Publish
                                 </SyvoraButton>
-                                <SyvoraButton v-else variant="ghost" size="sm" @click="handleUnpublish(event)">
+                                <SyvoraButton v-else variant="ghost" size="sm" @click.stop="handleUnpublish(event)">
                                     Revert to Draft
                                 </SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" @click="openEdit(event)">Edit</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" @click="handleArchive(event)">Archive</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="openEdit(event)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="handleArchive(event)">Archive</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(event)">Delete</SyvoraButton>
                             </div>
                         </div>
                     </div>
@@ -376,8 +376,8 @@ function goToEvent(event: LabelEvent) {
 
                         <div class="event-footer">
                             <div class="event-actions">
-                                <SyvoraButton variant="ghost" size="sm" @click="handleUnarchive(event)">Restore</SyvoraButton>
-                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(event)">Delete</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" @click.stop="handleUnarchive(event)">Restore</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(event)">Delete</SyvoraButton>
                             </div>
                         </div>
                     </div>

@@ -469,7 +469,7 @@ function formatAmount(tx: FinancialTransaction) {
 
                 <div v-if="event.ticket_link && !event.is_draft" class="detail-section">
                     <h3 class="detail-label">Tickets</h3>
-                    <a :href="event.ticket_link" target="_blank" class="ticket-link">{{ event.ticket_link }} ↗</a>
+                    <a :href="event.ticket_link" target="_blank" rel="noopener noreferrer" class="ticket-link">{{ event.ticket_link }} ↗</a>
                 </div>
 
                 <div class="detail-section detail-audit">
