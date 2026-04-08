@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
+import { useTeam, type TeamEventAssignment, EVENT_ROLES } from '../composables/useTeam'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
@@ -20,21 +21,36 @@ const {
     uploadEventArtwork, fetchEvents,
 } = useEvents()
 
+const {
+    teamMembers, fetchTeamMembers,
+    fetchTeamForEvent, assignToEvent, removeEventAssignment, updateEventAssignment,
+} = useTeam()
+
 const event = ref<LabelEvent | null>(null)
 const loadingEvent = ref(true)
+
+const teamAssignments = ref<TeamEventAssignment[]>([])
+const loadingTeam = ref(true)
 
 const activeTab = ref('overview')
 
 const tabs = computed<TabItem[]>(() => [
     { key: 'overview', label: 'Overview' },
-    { key: 'team', label: 'Team' },
+    { key: 'team', label: 'Team', count: teamAssignments.value.length },
     { key: 'financials', label: 'Financials' },
 ])
 
 onMounted(async () => {
     event.value = await fetchEventById(eventId.value)
     loadingEvent.value = false
+    await Promise.all([loadTeam(), fetchTeamMembers()])
 })
+
+async function loadTeam() {
+    loadingTeam.value = true
+    teamAssignments.value = await fetchTeamForEvent(eventId.value)
+    loadingTeam.value = false
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -193,6 +209,89 @@ async function saveEdit() {
         saving.value = false
     }
 }
+
+// ── Team Assignment Modal ────────────────────────────────────────────────────
+
+const showTeamModal = ref(false)
+const editingAssignment = ref<TeamEventAssignment | null>(null)
+const savingAssignment = ref(false)
+const teamError = ref('')
+const teamForm = ref({ team_member_id: '', event_role: '', notes: '' })
+
+const availableMembers = computed(() => {
+    const assignedIds = new Set(teamAssignments.value.map(a => a.team_member_id))
+    if (editingAssignment.value) {
+        assignedIds.delete(editingAssignment.value.team_member_id)
+    }
+    return teamMembers.value.filter(m => !assignedIds.has(m.id))
+})
+
+function openCreateAssignment() {
+    editingAssignment.value = null
+    teamForm.value = { team_member_id: '', event_role: '', notes: '' }
+    teamError.value = ''
+    showTeamModal.value = true
+}
+
+function openEditAssignment(a: TeamEventAssignment) {
+    editingAssignment.value = a
+    teamForm.value = {
+        team_member_id: a.team_member_id,
+        event_role: a.event_role,
+        notes: a.notes ?? '',
+    }
+    teamError.value = ''
+    showTeamModal.value = true
+}
+
+function closeTeamModal() {
+    showTeamModal.value = false
+    editingAssignment.value = null
+}
+
+async function saveAssignment() {
+    if (!editingAssignment.value && !teamForm.value.team_member_id) {
+        teamError.value = 'Select a team member.'
+        return
+    }
+    if (!teamForm.value.event_role) {
+        teamError.value = 'Select a role.'
+        return
+    }
+    savingAssignment.value = true
+    teamError.value = ''
+    try {
+        if (editingAssignment.value) {
+            await updateEventAssignment(editingAssignment.value.id, {
+                event_role: teamForm.value.event_role,
+                notes: teamForm.value.notes || null,
+            })
+        } else {
+            await assignToEvent(
+                teamForm.value.team_member_id,
+                eventId.value,
+                teamForm.value.event_role,
+                teamForm.value.notes || undefined,
+            )
+        }
+        await loadTeam()
+        closeTeamModal()
+    } catch (e: any) {
+        teamError.value = e.message ?? 'Failed to save assignment.'
+    } finally {
+        savingAssignment.value = false
+    }
+}
+
+async function handleRemoveAssignment(a: TeamEventAssignment) {
+    if (!confirm(`Remove ${a.member_name ?? 'this member'} from this event?`)) return
+    try {
+        await removeEventAssignment(a.id)
+        teamAssignments.value = teamAssignments.value.filter(x => x.id !== a.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to remove.')
+    }
+}
 </script>
 
 <template>
@@ -265,9 +364,39 @@ async function saveEdit() {
                 </div>
             </div>
 
-            <!-- Team tab (placeholder — Task 4) -->
+            <!-- Team tab -->
             <div v-if="activeTab === 'team'" class="tab-content">
-                <SyvoraEmptyState>Team assignments will appear here.</SyvoraEmptyState>
+                <div class="section-header">
+                    <h2 class="section-title">Team Assignments</h2>
+                    <SyvoraButton @click="openCreateAssignment">+ Assign</SyvoraButton>
+                </div>
+
+                <div v-if="loadingTeam" class="loading-text">Loading team…</div>
+
+                <SyvoraEmptyState v-else-if="teamAssignments.length === 0">
+                    No team members assigned to this event yet.
+                </SyvoraEmptyState>
+
+                <div v-else class="items-list">
+                    <div v-for="a in teamAssignments" :key="a.id" class="item-card">
+                        <div class="item-main">
+                            <div class="item-info">
+                                <div class="item-name-row">
+                                    <div v-if="a.member_image_url" class="member-avatar">
+                                        <img :src="a.member_image_url" :alt="a.member_name ?? ''" />
+                                    </div>
+                                    <span class="item-name">{{ a.member_name ?? 'Unknown' }}</span>
+                                    <span class="badge badge-deposit">{{ a.event_role }}</span>
+                                </div>
+                                <p v-if="a.notes" class="item-meta">{{ a.notes }}</p>
+                            </div>
+                            <div class="item-actions">
+                                <SyvoraButton variant="ghost" size="sm" @click="openEditAssignment(a)">Edit</SyvoraButton>
+                                <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleRemoveAssignment(a)">Remove</SyvoraButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Financials tab (placeholder — Task 5) -->
@@ -333,6 +462,37 @@ async function saveEdit() {
         <template #footer>
             <SyvoraButton variant="ghost" @click="closeEditModal">Cancel</SyvoraButton>
             <SyvoraButton :loading="saving" :disabled="saving" @click="saveEdit">Save Changes</SyvoraButton>
+        </template>
+    </SyvoraModal>
+
+    <!-- Team Assignment Modal -->
+    <SyvoraModal v-if="showTeamModal" :title="editingAssignment ? 'Edit Assignment' : 'Assign Team Member'" size="md" @close="closeTeamModal">
+        <div class="modal-form">
+            <SyvoraFormField v-if="!editingAssignment" label="Team Member" for="tm-member">
+                <select id="tm-member" v-model="teamForm.team_member_id" class="form-select">
+                    <option value="" disabled>Select a member…</option>
+                    <option v-for="m in availableMembers" :key="m.id" :value="m.id">{{ m.full_name }}</option>
+                </select>
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Role" for="tm-role">
+                <select id="tm-role" v-model="teamForm.event_role" class="form-select">
+                    <option value="" disabled>Select a role…</option>
+                    <option v-for="role in EVENT_ROLES" :key="role" :value="role">{{ role }}</option>
+                </select>
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Notes (optional)" for="tm-notes">
+                <SyvoraTextarea id="tm-notes" v-model="teamForm.notes" placeholder="Additional notes…" :rows="2" />
+            </SyvoraFormField>
+
+            <p v-if="teamError" class="error-msg">{{ teamError }}</p>
+        </div>
+        <template #footer>
+            <SyvoraButton variant="ghost" @click="closeTeamModal">Cancel</SyvoraButton>
+            <SyvoraButton :loading="savingAssignment" :disabled="savingAssignment" @click="saveAssignment">
+                {{ editingAssignment ? 'Save Changes' : 'Assign' }}
+            </SyvoraButton>
         </template>
     </SyvoraModal>
 </template>
@@ -464,6 +624,20 @@ async function saveEdit() {
 .error-msg { color: var(--color-error, #f87171); font-size: 0.85rem; margin: 0; }
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
+
+/* ── Team items ──────────────────────────────────────────────────────── */
+.items-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.item-name-row { display: flex; align-items: center; gap: 0.5rem; }
+.member-avatar { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.form-select {
+    width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+    border: 1px solid var(--color-border); background: var(--color-surface);
+    color: var(--color-text); font-size: 0.875rem; outline: none;
+    transition: border-color 0.15s; font-family: inherit;
+}
+.form-select:focus { border-color: var(--color-accent); }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 .mobile .event-header { flex-direction: column; align-items: center; text-align: center; }
