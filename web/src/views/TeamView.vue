@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useTeam, GENERAL_ROLES, EVENT_ROLES, type TeamMember, type TeamEventAssignment } from '../composables/useTeam'
 import { useEvents } from '../composables/useEvents'
 import { supabase } from '../lib/supabase'
 import { useMandator } from '../composables/useMandator'
+import QRCode from 'qrcode'
+import { jsPDF } from 'jspdf'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraEmptyState, SyvoraAvatar, SyvoraBadge,
@@ -204,6 +206,42 @@ function formatDate(d: string | null | undefined) {
     if (!d) return ''
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+// ── QR Code ─────────────────────────────────────────────────────────────────
+const qrCanvasRef = ref<HTMLCanvasElement>()
+
+watch(selectedMember, async () => {
+    await nextTick()
+    if (selectedMember.value && qrCanvasRef.value) {
+        await QRCode.toCanvas(qrCanvasRef.value, selectedMember.value.qr_token, {
+            width: 180,
+            margin: 2,
+            color: { dark: '#0c1a27', light: '#ffffff' },
+        })
+    }
+})
+
+async function exportQrPdf(member: TeamMember) {
+    const qrDataUrl = await QRCode.toDataURL(member.qr_token, {
+        width: 400,
+        margin: 2,
+        color: { dark: '#0c1a27', light: '#ffffff' },
+    })
+    const doc = new jsPDF({ unit: 'mm', format: 'a6' })
+    const w = doc.internal.pageSize.getWidth()
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text(member.full_name, w / 2, 18, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text('Team — All-Access Pass', w / 2, 26, { align: 'center' })
+    const qrSize = 60
+    doc.addImage(qrDataUrl, 'PNG', (w - qrSize) / 2, 34, qrSize, qrSize)
+    doc.setFontSize(7)
+    doc.setTextColor(120)
+    doc.text(member.qr_token, w / 2, 100, { align: 'center' })
+    doc.save(`pass-${member.full_name.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+}
 </script>
 
 <template>
@@ -278,6 +316,16 @@ function formatDate(d: string | null | undefined) {
                             </div>
                         </div>
                         <SyvoraButton variant="ghost" size="sm" class="close-btn" @click="closeDetail">&times;</SyvoraButton>
+                    </div>
+
+                    <div class="detail-section">
+                        <div class="detail-section-header">
+                            <h3 class="detail-section-title">Check-In Pass</h3>
+                        </div>
+                        <div class="qr-section">
+                            <canvas ref="qrCanvasRef" class="qr-canvas"></canvas>
+                            <SyvoraButton variant="ghost" size="sm" @click="exportQrPdf(selectedMember!)">Export PDF</SyvoraButton>
+                        </div>
                     </div>
 
                     <div class="detail-section">
@@ -641,6 +689,18 @@ function formatDate(d: string | null | undefined) {
     outline: none;
     border-color: rgba(115, 195, 254, 0.4);
     box-shadow: 0 0 0 3px rgba(115, 195, 254, 0.1);
+}
+
+.qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.qr-canvas {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
 }
 
 :deep(.btn-danger) {

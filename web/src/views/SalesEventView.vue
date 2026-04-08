@@ -46,7 +46,7 @@ const scannerVideoEl = ref<HTMLVideoElement>()
 let qrScanner: QrScanner | null = null
 const scannerActive = ref(false)
 const scannerError = ref('')
-const scanResult = ref<{ success: boolean; message: string; buyerName?: string; phaseName?: string } | null>(null)
+const scanResult = ref<{ success: boolean; message: string; buyerName?: string; phaseName?: string; passType?: string } | null>(null)
 const scanProcessing = ref(false)
 const checkedInCount = ref(0)
 const scanHistory = ref<{ time: Date; buyerName: string; phaseName: string; success: boolean }[]>([])
@@ -65,18 +65,20 @@ async function startScanner() {
             scanProcessing.value = true
             try {
                 const res = await checkInByQrToken(result.data, eventId)
+                const passLabel = res.passType === 'team' ? 'Team' : res.passType === 'artist' ? 'Artist' : undefined
                 scanResult.value = {
                     success: res.success,
                     message: res.message,
                     buyerName: res.buyerName,
-                    phaseName: res.ticket?.phase_name,
+                    phaseName: passLabel ?? res.ticket?.phase_name,
+                    passType: res.passType,
                 }
                 if (res.success) {
                     checkedInCount.value++
                     scanHistory.value.unshift({
                         time: new Date(),
                         buyerName: res.buyerName ?? 'Unknown',
-                        phaseName: res.ticket?.phase_name ?? '—',
+                        phaseName: passLabel ?? res.ticket?.phase_name ?? '—',
                         success: true,
                     })
                 } else {

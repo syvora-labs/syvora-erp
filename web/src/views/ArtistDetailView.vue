@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useArtists, type Artist, type ArtistNote, type ArtistShow, type ArtistBooking } from '../composables/useArtists'
 import { useContracts, type Contract } from '../composables/useContracts'
 import { useMandator } from '../composables/useMandator'
+import QRCode from 'qrcode'
+import { jsPDF } from 'jspdf'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
@@ -355,6 +357,45 @@ function formatDateTime(iso: string) {
         hour: '2-digit', minute: '2-digit',
     })
 }
+
+// ── QR Code ─────────────────────────────────────────────────────────────────
+const qrCanvasRef = ref<HTMLCanvasElement>()
+
+async function renderQr() {
+    await nextTick()
+    if (artist.value && qrCanvasRef.value) {
+        await QRCode.toCanvas(qrCanvasRef.value, artist.value.qr_token, {
+            width: 140,
+            margin: 2,
+            color: { dark: '#0c1a27', light: '#ffffff' },
+        })
+    }
+}
+
+watch(artist, renderQr)
+
+async function exportArtistQrPdf() {
+    if (!artist.value) return
+    const qrDataUrl = await QRCode.toDataURL(artist.value.qr_token, {
+        width: 400,
+        margin: 2,
+        color: { dark: '#0c1a27', light: '#ffffff' },
+    })
+    const doc = new jsPDF({ unit: 'mm', format: 'a6' })
+    const w = doc.internal.pageSize.getWidth()
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text(artist.value.name, w / 2, 18, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text('Artist — All-Access Pass', w / 2, 26, { align: 'center' })
+    const qrSize = 60
+    doc.addImage(qrDataUrl, 'PNG', (w - qrSize) / 2, 34, qrSize, qrSize)
+    doc.setFontSize(7)
+    doc.setTextColor(120)
+    doc.text(artist.value.qr_token, w / 2, 100, { align: 'center' })
+    doc.save(`pass-${artist.value.name.toLowerCase().replace(/\s+/g, '-')}.pdf`)
+}
 </script>
 
 <template>
@@ -378,6 +419,10 @@ function formatDateTime(iso: string) {
                     </div>
                     <p v-if="artist.manager_name" class="artist-manager">Managed by {{ artist.manager_name }}</p>
                     <p class="artist-since">Artist since {{ formatDate(artist.created_at) }}</p>
+                </div>
+                <div class="artist-qr">
+                    <canvas ref="qrCanvasRef" class="qr-canvas"></canvas>
+                    <SyvoraButton variant="ghost" size="sm" @click="exportArtistQrPdf">Export PDF</SyvoraButton>
                 </div>
             </div>
 
@@ -770,6 +815,20 @@ function formatDateTime(iso: string) {
     font-size: 0.875rem;
 }
 
+.artist-qr {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+.qr-canvas {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-subtle);
+}
+
 /* Tab content */
 .tab-content {
     margin-top: 1.5rem;
@@ -1064,6 +1123,10 @@ function formatDateTime(iso: string) {
 .mobile .artist-name-row {
     flex-wrap: wrap;
     justify-content: center;
+}
+
+.mobile .artist-qr {
+    margin-left: 0;
 }
 
 .mobile .form-row {

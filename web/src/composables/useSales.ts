@@ -260,6 +260,7 @@ export function useSales() {
         message: string
         ticket?: Ticket
         buyerName?: string
+        passType?: 'ticket' | 'team' | 'artist'
     }> {
         // Find the ticket by qr_token for this event
         const { data: ticketData, error: ticketError } = await supabase
@@ -270,7 +271,39 @@ export function useSales() {
             .single()
 
         if (ticketError || !ticketData) {
-            return { success: false, message: 'Ticket not found for this event.' }
+            // Not a ticket — check team members
+            const { data: teamMember } = await supabase
+                .from('team_members')
+                .select('id, full_name, qr_token')
+                .eq('qr_token', qrToken)
+                .single()
+
+            if (teamMember) {
+                return {
+                    success: true,
+                    message: 'Team — free entry',
+                    buyerName: teamMember.full_name,
+                    passType: 'team',
+                }
+            }
+
+            // Check artists
+            const { data: artist } = await supabase
+                .from('artists')
+                .select('id, name, qr_token')
+                .eq('qr_token', qrToken)
+                .single()
+
+            if (artist) {
+                return {
+                    success: true,
+                    message: 'Artist — free entry',
+                    buyerName: artist.name,
+                    passType: 'artist',
+                }
+            }
+
+            return { success: false, message: 'QR code not recognized.' }
         }
 
         const orderStatus = (ticketData as any).ticket_orders?.status
@@ -312,6 +345,7 @@ export function useSales() {
             success: true,
             message: 'Checked in successfully!',
             buyerName: (ticketData as any).ticket_orders?.buyer_name,
+            passType: 'ticket' as const,
             ticket: {
                 id: ticketData.id,
                 order_id: ticketData.order_id,

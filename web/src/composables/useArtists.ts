@@ -7,6 +7,7 @@ export interface Artist {
     picture_url: string | null
     address: string | null
     date_of_birth: string | null
+    qr_token: string
     is_managed: boolean
     managed_by: string | null
     created_by: string | null

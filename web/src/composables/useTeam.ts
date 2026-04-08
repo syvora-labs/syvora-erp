@@ -15,6 +15,7 @@ export interface TeamMember {
     full_name: string
     image_url: string | null
     general_roles: string[]
+    qr_token: string
     user_id: string | null
     created_by: string | null
     updated_by: string | null
