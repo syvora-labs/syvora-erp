@@ -16,6 +16,9 @@ export interface Mandator {
     module_contracts: boolean
     module_email: boolean
     module_team: boolean
+    module_sales: boolean
+    stripe_secret_key: string | null
+    stripe_webhook_secret: string | null
     contract_logo_url: string | null
     label_address: string | null
     label_uid: string | null
@@ -25,8 +28,8 @@ export interface Mandator {
     updated_at: string
 }
 
-export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations' | 'module_meetings' | 'module_roadmap' | 'module_lights' | 'module_contracts' | 'module_email' | 'module_team'
-export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations' | 'meetings' | 'roadmap' | 'lights' | 'contracts' | 'email' | 'team'
+export type ModuleKey = 'module_artists' | 'module_releases' | 'module_events' | 'module_radios' | 'module_financials' | 'module_associations' | 'module_meetings' | 'module_roadmap' | 'module_lights' | 'module_contracts' | 'module_email' | 'module_team' | 'module_sales'
+export type ModuleRoute = 'artists' | 'releases' | 'events' | 'radios' | 'financials' | 'associations' | 'meetings' | 'roadmap' | 'lights' | 'contracts' | 'email' | 'team' | 'sales'
 
 export interface ModuleDefinition {
     route: ModuleRoute
@@ -47,6 +50,7 @@ export const MODULES: ModuleDefinition[] = [
     { route: 'contracts', column: 'module_contracts', label: 'Contracts' },
     { route: 'email', column: 'module_email', label: 'Email' },
     { route: 'team', column: 'module_team', label: 'Team' },
+    { route: 'sales', column: 'module_sales', label: 'Sales' },
 ]
 
 export type MandatorFormData = Pick<Mandator, 'name' | ModuleKey>
@@ -65,6 +69,7 @@ const DEFAULT_FORM: MandatorFormData = {
     module_contracts: true,
     module_email: false,
     module_team: true,
+    module_sales: true,
 }
 
 // ── Current user's mandator (singleton state) ───────────────────────────────
@@ -84,6 +89,7 @@ const lightsEnabled = computed(() => mandator.value?.module_lights ?? true)
 const contractsEnabled = computed(() => mandator.value?.module_contracts ?? true)
 const emailEnabled = computed(() => mandator.value?.module_email ?? false)
 const teamEnabled = computed(() => mandator.value?.module_team ?? true)
+const salesEnabled = computed(() => mandator.value?.module_sales ?? true)
 const contractLogoUrl = computed(() => mandator.value?.contract_logo_url ?? null)
 const labelAddress = computed(() => mandator.value?.label_address ?? null)
 const labelUid = computed(() => mandator.value?.label_uid ?? null)
@@ -196,6 +202,7 @@ function getDefaultForm(from?: Mandator): MandatorFormData {
             module_contracts: from.module_contracts,
             module_email: from.module_email,
             module_team: from.module_team,
+            module_sales: from.module_sales,
         }
     }
     return { ...DEFAULT_FORM }
@@ -222,6 +229,7 @@ export function useMandator() {
         contractsEnabled,
         emailEnabled,
         teamEnabled,
+        salesEnabled,
         contractLogoUrl,
         labelAddress,
         labelUid,

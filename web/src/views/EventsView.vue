@@ -2,6 +2,8 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
+import { useMandator } from '../composables/useMandator'
+import { useSales, type EventSalesSummary } from '../composables/useSales'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraTabs,
@@ -10,6 +12,8 @@ import {
 
 const isMobile = useIsMobile()
 const router = useRouter()
+const { salesEnabled } = useMandator()
+const { fetchEventSalesSummary } = useSales()
 
 const {
     activeEvents, archivedEvents, loading,
@@ -17,6 +21,26 @@ const {
     publishEvent, unpublishEvent, uploadEventArtwork,
     archiveEvent, unarchiveEvent,
 } = useEvents()
+
+const salesSummaries = ref<Record<string, EventSalesSummary>>({})
+
+async function loadSalesSummaries() {
+    if (!salesEnabled.value) return
+    const { events } = useEvents()
+    const results = await Promise.all(
+        events.value.map(async (event) => {
+            try {
+                const summary = await fetchEventSalesSummary(event.id)
+                return { eventId: event.id, summary }
+            } catch {
+                return null
+            }
+        })
+    )
+    for (const r of results) {
+        if (r) salesSummaries.value[r.eventId] = r.summary
+    }
+}
 
 const activeTab = ref<'active' | 'archived'>('active')
 
@@ -51,8 +75,9 @@ function onDocClick() {
     openMenuId.value = null
 }
 
-onMounted(() => {
-    fetchEvents()
+onMounted(async () => {
+    await fetchEvents()
+    loadSalesSummaries()
     document.addEventListener('click', onDocClick)
 })
 
@@ -308,6 +333,15 @@ function goToEvent(event: LabelEvent) {
                         <div class="event-audit">
                             <span>Created by {{ event.creator_name ?? 'Unknown' }} · {{ formatAuditDate(event.created_at) }}</span>
                             <span v-if="event.updater_name"> · Updated by {{ event.updater_name }} · {{ formatAuditDate(event.updated_at) }}</span>
+                        </div>
+
+                        <div v-if="salesEnabled && salesSummaries[event.id]?.phases.length" class="event-tickets-info">
+                            <span class="badge badge-deposit">
+                                {{ salesSummaries[event.id].total_sold }} / {{ salesSummaries[event.id].phases.reduce((s, p) => s + p.quantity, 0) }} sold
+                            </span>
+                            <SyvoraButton variant="ghost" size="sm" @click.stop="router.push(`/sales/${event.id}`)">
+                                Manage Tickets
+                            </SyvoraButton>
                         </div>
 
                         <div class="event-footer">
@@ -625,6 +659,10 @@ function goToEvent(event: LabelEvent) {
 
 .event-more-item:hover {
     background: rgba(0, 0, 0, 0.04);
+}
+
+.event-tickets-info {
+    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
 }
 
 :deep(.btn-danger) { color: var(--color-error); }

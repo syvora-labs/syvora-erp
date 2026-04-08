@@ -39,6 +39,7 @@ const GROUP_DEFS: { label: string; items: { route: string; label: string; keywor
             { route: 'contracts', label: 'Contracts', keywords: ['contract', 'agreement', 'signing', 'legal'] },
             { route: 'email', label: 'Email', keywords: ['email', 'mail', 'inbox', 'compose', 'message'] },
             { route: 'team', label: 'Team', keywords: ['team', 'crew', 'staff', 'member', 'role'] },
+            { route: 'sales', label: 'Sales', keywords: ['sales', 'tickets', 'ticket', 'revenue', 'orders'] },
         ],
     },
 ]

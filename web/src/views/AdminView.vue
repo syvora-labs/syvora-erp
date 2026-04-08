@@ -61,7 +61,7 @@ const savingMandator = ref(false)
 const mandatorError = ref('')
 const editingMandatorId = ref<string | null>(null)
 const mandatorForm = ref<MandatorFormData>(getDefaultForm())
-const mandatorExtraForm = ref({ label_address: '', label_uid: '', contract_logo_url: '' })
+const mandatorExtraForm = ref({ label_address: '', label_uid: '', contract_logo_url: '', stripe_secret_key: '', stripe_webhook_secret: '' })
 const mandatorLogoFile = ref<File | null>(null)
 const mandatorLogoPreview = ref<string | null>(null)
 
@@ -222,6 +222,8 @@ async function openMandatorModal(m?: Mandator) {
         label_address: m?.label_address ?? '',
         label_uid: m?.label_uid ?? '',
         contract_logo_url: m?.contract_logo_url ?? '',
+        stripe_secret_key: (m as any)?.stripe_secret_key ?? '',
+        stripe_webhook_secret: (m as any)?.stripe_webhook_secret ?? '',
     }
     mandatorLogoPreview.value = m?.contract_logo_url ?? null
     mandatorLogoFile.value = null
@@ -274,10 +276,14 @@ async function saveMandator() {
             const { data: urlData } = adminClient.storage.from('contract-logos').getPublicUrl(path)
             logoUrl = urlData.publicUrl
         }
-        const extraPayload = {
+        const extraPayload: Record<string, any> = {
             label_address: mandatorExtraForm.value.label_address || null,
             label_uid: mandatorExtraForm.value.label_uid || null,
             contract_logo_url: logoUrl || null,
+        }
+        if (mandatorForm.value.module_sales) {
+            extraPayload.stripe_secret_key = mandatorExtraForm.value.stripe_secret_key || null
+            extraPayload.stripe_webhook_secret = mandatorExtraForm.value.stripe_webhook_secret || null
         }
         let mandatorId = editingMandatorId.value
         if (mandatorId) {
@@ -541,6 +547,18 @@ function formatDate(d: string) {
                     <input type="checkbox" v-model="emailConfigForm.use_tls" />
                     <span>Use TLS</span>
                 </label>
+            </template>
+
+            <template v-if="mandatorForm.module_sales">
+                <div class="section-divider">Stripe Configuration</div>
+
+                <SyvoraFormField label="Stripe Secret Key" for="cm-stripe-sk">
+                    <SyvoraInput id="cm-stripe-sk" v-model="mandatorExtraForm.stripe_secret_key" type="password" placeholder="sk_live_…" autocomplete="off" />
+                </SyvoraFormField>
+
+                <SyvoraFormField label="Stripe Webhook Secret" for="cm-stripe-wh">
+                    <SyvoraInput id="cm-stripe-wh" v-model="mandatorExtraForm.stripe_webhook_secret" type="password" placeholder="whsec_…" autocomplete="off" />
+                </SyvoraFormField>
             </template>
 
             <p v-if="mandatorError" class="error-msg">{{ mandatorError }}</p>
