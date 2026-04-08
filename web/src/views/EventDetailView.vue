@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import { useTeam, type TeamEventAssignment, EVENT_ROLES } from '../composables/useTeam'
+import { useFinancialTransactions, type FinancialTransaction } from '../composables/useFinancialTransactions'
+import { useFinancialCategories } from '../composables/useFinancialCategories'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
@@ -26,30 +28,47 @@ const {
     fetchTeamForEvent, assignToEvent, removeEventAssignment, updateEventAssignment,
 } = useTeam()
 
+const {
+    transactions: allTransactions, fetchTransactions,
+    createTransaction, updateTransaction, deleteTransaction,
+} = useFinancialTransactions()
+const { categories, fetchCategories } = useFinancialCategories()
+
 const event = ref<LabelEvent | null>(null)
 const loadingEvent = ref(true)
 
 const teamAssignments = ref<TeamEventAssignment[]>([])
 const loadingTeam = ref(true)
 
+const eventTransactions = computed(() =>
+    allTransactions.value.filter(t => t.event_id === eventId.value)
+)
+const loadingTx = ref(true)
+
 const activeTab = ref('overview')
 
 const tabs = computed<TabItem[]>(() => [
     { key: 'overview', label: 'Overview' },
     { key: 'team', label: 'Team', count: teamAssignments.value.length },
-    { key: 'financials', label: 'Financials' },
+    { key: 'financials', label: 'Financials', count: eventTransactions.value.length },
 ])
 
 onMounted(async () => {
     event.value = await fetchEventById(eventId.value)
     loadingEvent.value = false
-    await Promise.all([loadTeam(), fetchTeamMembers()])
+    await Promise.all([loadTeam(), fetchTeamMembers(), loadTransactions()])
 })
 
 async function loadTeam() {
     loadingTeam.value = true
     teamAssignments.value = await fetchTeamForEvent(eventId.value)
     loadingTeam.value = false
+}
+
+async function loadTransactions() {
+    loadingTx.value = true
+    await Promise.all([fetchTransactions(), fetchCategories()])
+    loadingTx.value = false
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -292,6 +311,101 @@ async function handleRemoveAssignment(a: TeamEventAssignment) {
         alert(e.message ?? 'Failed to remove.')
     }
 }
+
+// ── Transaction Modal ────────────────────────────────────────────────────────
+
+const showTxModal = ref(false)
+const editingTx = ref<FinancialTransaction | null>(null)
+const savingTx = ref(false)
+const txError = ref('')
+const txForm = ref({
+    type: 'expense' as string,
+    amount: '',
+    description: '',
+    category_id: '',
+    transaction_date: '',
+    is_pending: false,
+})
+
+const categoriesForType = computed(() => {
+    const t = txForm.value.type
+    return categories.value.filter(c => c.type === t || c.type === 'both')
+})
+
+function openCreateTx() {
+    editingTx.value = null
+    txForm.value = { type: 'expense', amount: '', description: '', category_id: '', transaction_date: '', is_pending: false }
+    txError.value = ''
+    showTxModal.value = true
+}
+
+function openEditTx(tx: FinancialTransaction) {
+    editingTx.value = tx
+    txForm.value = {
+        type: tx.type,
+        amount: String(tx.amount),
+        description: tx.description,
+        category_id: tx.category_id ?? '',
+        transaction_date: tx.transaction_date,
+        is_pending: tx.is_pending,
+    }
+    txError.value = ''
+    showTxModal.value = true
+}
+
+function closeTxModal() {
+    showTxModal.value = false
+    editingTx.value = null
+}
+
+async function saveTx() {
+    const amt = parseFloat(txForm.value.amount)
+    if (!amt || amt <= 0) { txError.value = 'Amount must be greater than 0.'; return }
+    if (!txForm.value.description.trim()) { txError.value = 'Description is required.'; return }
+    if (!txForm.value.transaction_date) { txError.value = 'Date is required.'; return }
+
+    savingTx.value = true
+    txError.value = ''
+    try {
+        const payload = {
+            type: txForm.value.type,
+            amount: amt,
+            description: txForm.value.description.trim(),
+            category_id: txForm.value.category_id || null,
+            event_id: eventId.value,
+            transaction_date: txForm.value.transaction_date,
+            is_pending: txForm.value.is_pending,
+        }
+        if (editingTx.value) {
+            await updateTransaction(editingTx.value.id, payload)
+        } else {
+            await createTransaction(payload)
+        }
+        closeTxModal()
+    } catch (e: any) {
+        txError.value = e.message ?? 'Failed to save.'
+    } finally {
+        savingTx.value = false
+    }
+}
+
+async function handleDeleteTx(tx: FinancialTransaction) {
+    if (!confirm(`Delete transaction "${tx.description}"?`)) return
+    try {
+        await deleteTransaction(tx.id)
+    } catch (e: any) {
+        alert(e.message ?? 'Failed to delete.')
+    }
+}
+
+function formatTxDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatAmount(tx: FinancialTransaction) {
+    const formatted = new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(tx.amount)
+    return tx.type === 'income' ? `+${formatted}` : `-${formatted}`
+}
 </script>
 
 <template>
@@ -399,9 +513,44 @@ async function handleRemoveAssignment(a: TeamEventAssignment) {
                 </div>
             </div>
 
-            <!-- Financials tab (placeholder — Task 5) -->
+            <!-- Financials tab -->
             <div v-if="activeTab === 'financials'" class="tab-content">
-                <SyvoraEmptyState>Financial transactions will appear here.</SyvoraEmptyState>
+                <div class="section-header">
+                    <h2 class="section-title">Transactions</h2>
+                    <SyvoraButton @click="openCreateTx">+ Add Transaction</SyvoraButton>
+                </div>
+
+                <div v-if="loadingTx" class="loading-text">Loading transactions…</div>
+
+                <SyvoraEmptyState v-else-if="eventTransactions.length === 0">
+                    No transactions linked to this event yet.
+                </SyvoraEmptyState>
+
+                <div v-else class="items-list">
+                    <div v-for="tx in eventTransactions" :key="tx.id" class="item-card">
+                        <div class="item-main">
+                            <div class="item-info">
+                                <div class="item-name-row">
+                                    <span class="item-name">{{ tx.description }}</span>
+                                    <span v-if="tx.category_name" class="badge" :style="{ background: (tx.category_color ?? '#73c3fe') + '18', color: tx.category_color ?? 'var(--color-accent)', border: '1px solid ' + (tx.category_color ?? '#73c3fe') + '33' }">
+                                        {{ tx.category_name }}
+                                    </span>
+                                    <span v-if="tx.is_pending" class="badge badge-draft">Pending</span>
+                                </div>
+                                <span class="item-meta">{{ formatTxDate(tx.transaction_date) }}</span>
+                            </div>
+                            <div class="tx-right">
+                                <span class="tx-amount" :class="tx.type === 'income' ? 'tx-income' : 'tx-expense'">
+                                    {{ formatAmount(tx) }}
+                                </span>
+                                <div class="item-actions">
+                                    <SyvoraButton variant="ghost" size="sm" @click="openEditTx(tx)">Edit</SyvoraButton>
+                                    <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDeleteTx(tx)">Delete</SyvoraButton>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </template>
 
@@ -492,6 +641,50 @@ async function handleRemoveAssignment(a: TeamEventAssignment) {
             <SyvoraButton variant="ghost" @click="closeTeamModal">Cancel</SyvoraButton>
             <SyvoraButton :loading="savingAssignment" :disabled="savingAssignment" @click="saveAssignment">
                 {{ editingAssignment ? 'Save Changes' : 'Assign' }}
+            </SyvoraButton>
+        </template>
+    </SyvoraModal>
+
+    <!-- Transaction Modal -->
+    <SyvoraModal v-if="showTxModal" :title="editingTx ? 'Edit Transaction' : 'Add Transaction'" size="md" @close="closeTxModal">
+        <div class="modal-form">
+            <SyvoraFormField label="Type" for="tx-type">
+                <select id="tx-type" v-model="txForm.type" class="form-select">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Amount (CHF)" for="tx-amount">
+                <SyvoraInput id="tx-amount" v-model="txForm.amount" type="number" placeholder="0.00" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Description" for="tx-desc">
+                <SyvoraInput id="tx-desc" v-model="txForm.description" placeholder="What was this for?" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Date" for="tx-date">
+                <SyvoraInput id="tx-date" v-model="txForm.transaction_date" type="date" />
+            </SyvoraFormField>
+
+            <SyvoraFormField label="Category (optional)" for="tx-cat">
+                <select id="tx-cat" v-model="txForm.category_id" class="form-select">
+                    <option value="">None</option>
+                    <option v-for="c in categoriesForType" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+            </SyvoraFormField>
+
+            <label class="pending-toggle">
+                <input type="checkbox" v-model="txForm.is_pending" />
+                <span>Mark as pending</span>
+            </label>
+
+            <p v-if="txError" class="error-msg">{{ txError }}</p>
+        </div>
+        <template #footer>
+            <SyvoraButton variant="ghost" @click="closeTxModal">Cancel</SyvoraButton>
+            <SyvoraButton :loading="savingTx" :disabled="savingTx" @click="saveTx">
+                {{ editingTx ? 'Save Changes' : 'Add Transaction' }}
             </SyvoraButton>
         </template>
     </SyvoraModal>
@@ -638,6 +831,18 @@ async function handleRemoveAssignment(a: TeamEventAssignment) {
     transition: border-color 0.15s; font-family: inherit;
 }
 .form-select:focus { border-color: var(--color-accent); }
+
+/* ── Transactions ────────────────────────────────────────────────────── */
+.tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.375rem; flex-shrink: 0; }
+.tx-amount { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tx-income { color: rgba(34,197,94,0.85); }
+.tx-expense { color: var(--color-error, #f87171); }
+
+.pending-toggle {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.875rem; color: var(--color-text); cursor: pointer;
+}
+.pending-toggle input { accent-color: var(--color-accent); }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 .mobile .event-header { flex-direction: column; align-items: center; text-align: center; }
