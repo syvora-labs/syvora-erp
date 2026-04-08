@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEvents, type LabelEvent } from '../composables/useEvents'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
@@ -8,6 +9,7 @@ import {
 } from '@syvora/ui'
 
 const isMobile = useIsMobile()
+const router = useRouter()
 
 const {
     activeEvents, archivedEvents, loading,
@@ -213,6 +215,10 @@ function isUpcoming(d: string | null) {
 function formatAuditDate(d: string) {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+function goToEvent(event: LabelEvent) {
+    router.push(`/events/${event.id}`)
+}
 </script>
 
 <template>
@@ -245,8 +251,9 @@ function formatAuditDate(d: string) {
                 <div
                     v-for="event in activeEvents"
                     :key="event.id"
-                    class="event-card"
+                    class="event-card event-card--clickable"
                     :class="{ 'event-card--draft': event.is_draft }"
+                    @click="goToEvent(event)"
                 >
                     <div class="event-more">
                         <button class="event-more-btn" @click.stop="toggleMenu(event.id)" aria-label="More actions">
@@ -334,7 +341,8 @@ function formatAuditDate(d: string) {
                 <div
                     v-for="event in archivedEvents"
                     :key="event.id"
-                    class="event-card event-card--archived"
+                    class="event-card event-card--clickable event-card--archived"
+                    @click="goToEvent(event)"
                 >
                     <div class="event-artwork">
                         <img v-if="event.artwork_url" :src="event.artwork_url" :alt="event.title" />
@@ -471,6 +479,7 @@ function formatAuditDate(d: string) {
 .event-card--archived {
     opacity: 0.6;
 }
+.event-card--clickable { cursor: pointer; }
 
 .event-artwork { width: 160px; flex-shrink: 0; overflow: hidden; border-radius: var(--radius-card) 0 0 var(--radius-card); }
 .event-artwork img { width: 100%; height: 100%; object-fit: cover; }
