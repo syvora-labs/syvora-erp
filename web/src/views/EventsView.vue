@@ -706,5 +706,50 @@ function goToEvent(event: LabelEvent) {
     font-size: 0.75rem; color: var(--color-text-muted);
 }
 
-.mobile .event-artwork { width: 100px; }
+/* ── Mobile ───────────────────────────────────────────────────────── */
+.mobile .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+}
+
+.mobile .event-card {
+    flex-direction: column;
+}
+
+.mobile .event-artwork {
+    width: 100%;
+    height: 160px;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.mobile .event-title {
+    font-size: 1.1rem;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.mobile .event-meta {
+    gap: 0.4rem;
+}
+
+.mobile .event-date {
+    width: 100%;
+    margin-top: 0.125rem;
+}
+
+.mobile .event-audit {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.mobile .event-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.mobile .event-actions {
+    width: 100%;
+}
 </style>
