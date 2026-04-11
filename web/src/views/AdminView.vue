@@ -269,7 +269,10 @@ async function saveMandator() {
     try {
         let logoUrl = mandatorExtraForm.value.contract_logo_url
         if (mandatorLogoFile.value) {
-            const mandatorId = editingMandatorId.value ?? crypto.randomUUID()
+            const mandatorId = editingMandatorId.value
+                ?? (typeof crypto.randomUUID === 'function'
+                    ? crypto.randomUUID()
+                    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`)
             const ext = mandatorLogoFile.value.name.split('.').pop() ?? 'png'
             const path = `mandators/${mandatorId}/logo.${ext}`
             await adminClient.storage.from('contract-logos').upload(path, mandatorLogoFile.value, { upsert: true })
