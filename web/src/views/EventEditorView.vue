@@ -69,10 +69,8 @@ onMounted(async () => {
                 description: e.description ?? '',
                 lineupRaw: (e.lineup ?? []).join(', '),
                 location: e.location ?? '',
-                event_date: e.event_date ? e.event_date.split('T')[0]! : '',
-                event_time: e.event_date && e.event_date.includes('T')
-                    ? e.event_date.split('T')[1]!.slice(0, 5)
-                    : '',
+                event_date: e.event_date ? (new Date(e.event_date).toISOString().split('T')[0] ?? '') : '',
+                event_time: e.event_date ? new Date(e.event_date).toTimeString().slice(0, 5) : '',
                 artwork_url: e.artwork_url,
                 ticket_link: e.ticket_link ?? '',
                 ticket_management: e.ticket_management,
@@ -98,9 +96,7 @@ function buildPayload() {
     const lineup = form.value.lineupRaw
         .split(',').map(s => s.trim()).filter(Boolean)
     const event_date = form.value.event_date
-        ? (form.value.event_time
-            ? `${form.value.event_date}T${form.value.event_time}:00`
-            : form.value.event_date)
+        ? new Date(`${form.value.event_date}T${form.value.event_time || '00:00'}`).toISOString()
         : null
     return {
         title: form.value.title.trim(),
@@ -134,6 +130,7 @@ async function handleSave() {
             const url = await uploadEventArtwork(pendingArtwork.value, workingId)
             await updateEvent(workingId, { artwork_url: url })
             form.value.artwork_url = url
+            artworkPreview.value = url
             pendingArtwork.value = null
         }
 
