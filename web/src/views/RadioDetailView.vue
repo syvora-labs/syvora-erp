@@ -2,11 +2,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRadios, type Radio, type RadioFile } from '../composables/useRadios'
-import { useArtists } from '../composables/useArtists'
 import {
-    SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraTextarea, SyvoraEmptyState,
-    SyvoraTabs, useIsMobile,
+    SyvoraButton, SyvoraEmptyState, SyvoraTabs, useIsMobile,
 } from '@syvora/ui'
 import type { TabItem } from '@syvora/ui'
 
@@ -16,12 +13,10 @@ const router = useRouter()
 const radioId = computed(() => route.params.id as string)
 
 const {
-    fetchRadioById, updateRadio, deleteRadio,
+    fetchRadioById, deleteRadio,
     publishRadio, unpublishRadio, archiveRadio, unarchiveRadio,
     uploadRadioFile, deleteRadioFile,
 } = useRadios()
-
-const { artists, fetchArtists } = useArtists()
 
 const radio = ref<Radio | null>(null)
 const loadingRadio = ref(true)
@@ -34,7 +29,7 @@ const tabs = computed<TabItem[]>(() => [
 ])
 
 onMounted(async () => {
-    await Promise.all([reloadRadio(), fetchArtists()])
+    await reloadRadio()
 })
 
 async function reloadRadio() {
@@ -121,61 +116,6 @@ async function handleDelete() {
     }
 }
 
-// ── Edit modal ───────────────────────────────────────────────────────────────
-
-const showEditModal = ref(false)
-const saving = ref(false)
-const editError = ref('')
-const editForm = ref({
-    title: '',
-    description: '',
-    artists: [] as string[],
-    release_date: '',
-    soundcloud_link: '',
-})
-
-function openEdit() {
-    if (!radio.value) return
-    editForm.value = {
-        title: radio.value.title,
-        description: radio.value.description ?? '',
-        artists: [...radio.value.artists],
-        release_date: radio.value.release_date ?? '',
-        soundcloud_link: radio.value.soundcloud_link ?? '',
-    }
-    editError.value = ''
-    showEditModal.value = true
-}
-
-function closeEditModal() {
-    showEditModal.value = false
-}
-
-async function saveEdit() {
-    if (!radio.value) return
-    if (!editForm.value.title.trim()) {
-        editError.value = 'Title is required.'
-        return
-    }
-    saving.value = true
-    editError.value = ''
-    try {
-        await updateRadio(radio.value.id, {
-            title: editForm.value.title.trim(),
-            description: editForm.value.description.trim() || null,
-            artists: editForm.value.artists,
-            release_date: editForm.value.release_date || null,
-            soundcloud_link: editForm.value.soundcloud_link.trim() || null,
-        })
-        await reloadRadio()
-        closeEditModal()
-    } catch (e: any) {
-        editError.value = e.message ?? 'Failed to save.'
-    } finally {
-        saving.value = false
-    }
-}
-
 // ── Files ─────────────────────────────────────────────────────────────────────
 
 const newFileLabel = ref('')
@@ -235,7 +175,7 @@ function downloadFile(file: RadioFile) {
                     </div>
                     <p class="radio-date-line">{{ formatDate(radio.release_date) }}</p>
                     <div class="radio-header-actions">
-                        <SyvoraButton size="sm" @click="openEdit">Edit</SyvoraButton>
+                        <SyvoraButton size="sm" @click="router.push(`/radios/${radioId}/edit`)">Edit</SyvoraButton>
                         <SyvoraButton
                             v-if="radio.is_draft"
                             size="sm"
@@ -326,66 +266,6 @@ function downloadFile(file: RadioFile) {
 
         <div v-else class="loading-text">Radio not found.</div>
     </div>
-
-    <!-- Edit Modal -->
-    <SyvoraModal v-if="showEditModal" title="Edit Radio" size="lg" @close="closeEditModal">
-        <div class="modal-form">
-            <div v-if="radio && !radio.is_draft" class="published-notice">
-                <span class="badge badge-published">Published</span>
-                Editing will update the live radio.
-            </div>
-
-            <SyvoraFormField label="Radio Title" for="rd-title">
-                <SyvoraInput id="rd-title" v-model="editForm.title" placeholder="Radio episode name" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Artists" for="rd-artists">
-                <div class="multi-select-wrap">
-                    <div v-if="editForm.artists.length" class="selected-artists">
-                        <span v-for="(name, i) in editForm.artists" :key="i" class="selected-artist-chip">
-                            {{ name }}
-                            <button type="button" class="chip-remove" @click="editForm.artists.splice(i, 1)">&times;</button>
-                        </span>
-                    </div>
-                    <select
-                        id="rd-artists"
-                        class="syvora-select"
-                        @change="(e: Event) => {
-                            const val = (e.target as HTMLSelectElement).value
-                            if (val && !editForm.artists.includes(val)) editForm.artists.push(val)
-                            ;(e.target as HTMLSelectElement).value = ''
-                        }"
-                    >
-                        <option value="">Add artist...</option>
-                        <option
-                            v-for="a in artists"
-                            :key="a.id"
-                            :value="a.name"
-                            :disabled="editForm.artists.includes(a.name)"
-                        >{{ a.name }}</option>
-                    </select>
-                </div>
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Release Date" for="rd-date">
-                <SyvoraInput id="rd-date" v-model="editForm.release_date" type="date" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="SoundCloud Link" for="rd-soundcloud">
-                <SyvoraInput id="rd-soundcloud" v-model="editForm.soundcloud_link" placeholder="https://soundcloud.com/..." />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Description" for="rd-desc">
-                <SyvoraTextarea id="rd-desc" v-model="editForm.description" placeholder="Radio description..." :rows="3" />
-            </SyvoraFormField>
-
-            <p v-if="editError" class="error-msg">{{ editError }}</p>
-        </div>
-        <template #footer>
-            <SyvoraButton variant="ghost" @click="closeEditModal">Cancel</SyvoraButton>
-            <SyvoraButton :loading="saving" :disabled="saving" @click="saveEdit">Save Changes</SyvoraButton>
-        </template>
-    </SyvoraModal>
 </template>
 
 <style scoped>
@@ -508,60 +388,6 @@ function downloadFile(file: RadioFile) {
 }
 .file-row-btn:hover { opacity: 0.7; }
 .file-row-delete { color: var(--color-error); }
-
-/* ── Modal ───────────────────────────────────────────────────────────────── */
-.modal-form { display: flex; flex-direction: column; gap: 1rem; }
-
-.syvora-select {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.58);
-    backdrop-filter: blur(10px) saturate(160%);
-    -webkit-backdrop-filter: blur(10px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.52);
-    border-radius: var(--radius-sm, 0.625rem);
-    color: var(--color-text);
-    font-size: 1rem;
-    box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.85) inset,
-        0 1px 3px rgba(0, 0, 0, 0.04) inset;
-}
-.syvora-select:focus {
-    outline: none;
-    background: rgba(255, 255, 255, 0.72);
-    border-color: rgba(22, 163, 74, 0.4);
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.95) inset,
-        0 1px 3px rgba(0, 0, 0, 0.04) inset,
-        0 0 0 3px rgba(22, 163, 74, 0.1);
-}
-
-.multi-select-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
-.selected-artists { display: flex; flex-wrap: wrap; gap: 0.375rem; }
-.selected-artist-chip {
-    display: inline-flex; align-items: center; gap: 0.25rem;
-    padding: 0.25rem 0.5rem; border-radius: var(--radius-sm);
-    background: rgba(115, 195, 254, 0.1); border: 1px solid rgba(115, 195, 254, 0.22);
-    font-size: 0.8125rem; font-weight: 500;
-}
-.chip-remove {
-    background: none; border: none; cursor: pointer;
-    color: var(--color-text-muted); font-size: 1rem; line-height: 1;
-    padding: 0 0.125rem;
-}
-.chip-remove:hover { color: var(--color-error); }
-
-.published-notice {
-    display: flex; align-items: center; gap: 0.5rem;
-    font-size: 0.8125rem; color: var(--color-text-muted);
-    padding: 0.5rem 0.75rem;
-    background: rgba(115,195,254,0.06); border-radius: var(--radius-sm);
-    border: 1px solid rgba(115,195,254,0.15);
-}
-
-.error-msg { color: var(--color-error, #f87171); font-size: 0.85rem; margin: 0; }
 
 :deep(.btn-danger) { color: var(--color-error, #f87171); }
 

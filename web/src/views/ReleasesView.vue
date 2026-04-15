@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { supabase } from '../lib/supabase'
 import { useReleases, type Release, type ReleaseType, type Track } from '../composables/useReleases'
 import { useMandator } from '../composables/useMandator'
 import { useContracts, type Contract } from '../composables/useContracts'
 import { useArtists } from '../composables/useArtists'
 import {
-    SyvoraButton, SyvoraModal, SyvoraFormField,
-    SyvoraInput, SyvoraTextarea, SyvoraEmptyState
+    SyvoraButton, SyvoraEmptyState
 } from '@syvora/ui'
 
 const {
-    releases, loading, fetchReleases, createRelease, updateRelease, deleteRelease,
-    uploadArtwork, addTrack, deleteTrack, uploadTrack, reorderTrack,
+    releases, loading, fetchReleases, deleteRelease,
 } = useReleases()
 
 const router = useRouter()
@@ -21,32 +18,6 @@ const { contractsEnabled } = useMandator()
 const { artists: allArtists, fetchArtists: fetchAllArtists } = useArtists()
 const { fetchContractsByRelease } = useContracts()
 const releaseContracts = ref<Record<string, Contract[]>>({})
-
-// ── Modal state ──────────────────────────────────────────────────────────────
-const showModal = ref(false)
-const editingRelease = ref<Release | null>(null)
-const saving = ref(false)
-const error = ref('')
-const form = ref({ title: '', type: 'album' as ReleaseType, artist: '', description: '', release_date: '' })
-const artworkFile = ref<File | null>(null)
-const artworkPreview = ref<string | null>(null)
-const newTrackTitle = ref('')
-const newTrackFile = ref<File | null>(null)
-const trackSaving = ref(false)
-
-const releaseTypes: { value: ReleaseType; label: string }[] = [
-    { value: 'album', label: 'Album' },
-    { value: 'ep', label: 'EP' },
-    { value: 'single', label: 'Single' },
-    { value: 'compilation', label: 'Compilation' },
-]
-
-const sortedTracks = computed(() =>
-    (editingRelease.value?.tracks ?? []).slice().sort((a, b) => (a.track_number ?? 999) - (b.track_number ?? 999))
-)
-const showOrdering = computed(() =>
-    editingRelease.value?.type === 'album' || editingRelease.value?.type === 'compilation'
-)
 
 // ── Audio player ─────────────────────────────────────────────────────────────
 const audioRef = ref<HTMLAudioElement | null>(null)
@@ -172,7 +143,7 @@ function closePlayer() {
     duration.value = 0
 }
 
-// ── Modal actions ─────────────────────────────────────────────────────────────
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(() => {
     fetchReleases()
     fetchAllArtists()
@@ -194,136 +165,6 @@ function createContractFromRelease(release: Release) {
     }
     if (artistId) query.artistId = artistId
     router.push({ path: '/contracts', query })
-}
-
-function openCreate() {
-    editingRelease.value = null
-    form.value = { title: '', type: 'album', artist: '', description: '', release_date: '' }
-    artworkFile.value = null
-    artworkPreview.value = null
-    error.value = ''
-    showModal.value = true
-}
-
-function openEdit(release: Release) {
-    editingRelease.value = { ...release, tracks: release.tracks ? [...release.tracks] : [] }
-    form.value = {
-        title: release.title,
-        type: release.type,
-        artist: release.artist,
-        description: release.description ?? '',
-        release_date: release.release_date ?? '',
-    }
-    artworkFile.value = null
-    artworkPreview.value = release.artwork_url ?? null
-    error.value = ''
-    newTrackTitle.value = ''
-    newTrackFile.value = null
-    showModal.value = true
-}
-
-function closeModal() {
-    showModal.value = false
-    editingRelease.value = null
-}
-
-function onArtworkPick(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    artworkFile.value = file
-    artworkPreview.value = URL.createObjectURL(file)
-}
-
-function onTrackFilePick(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    newTrackFile.value = file
-    if (!newTrackTitle.value) newTrackTitle.value = file.name.replace(/\.[^.]+$/, '')
-}
-
-function nextTrackNumber(): number {
-    const tracks = editingRelease.value?.tracks ?? []
-    if (!tracks.length) return 1
-    return Math.max(...tracks.map(t => t.track_number ?? 0)) + 1
-}
-
-async function saveRelease() {
-    if (!form.value.title.trim() || !form.value.artist.trim()) {
-        error.value = 'Title and artist are required.'
-        return
-    }
-    saving.value = true
-    error.value = ''
-    try {
-        const payload = {
-            title: form.value.title.trim(),
-            type: form.value.type,
-            artist: form.value.artist.trim(),
-            description: form.value.description.trim() || null,
-            release_date: form.value.release_date || null,
-        }
-        if (editingRelease.value) {
-            let artwork_url = editingRelease.value.artwork_url
-            if (artworkFile.value) artwork_url = await uploadArtwork(artworkFile.value, editingRelease.value.id)
-            await updateRelease(editingRelease.value.id, { ...payload, artwork_url })
-        } else {
-            const r = await createRelease(payload)
-            if (artworkFile.value) {
-                const artwork_url = await uploadArtwork(artworkFile.value, r.id)
-                await updateRelease(r.id, { artwork_url })
-            }
-        }
-        closeModal()
-    } catch (e: any) {
-        error.value = e.message ?? 'Failed to save release.'
-    } finally {
-        saving.value = false
-    }
-}
-
-async function handleAddTrack() {
-    if (!editingRelease.value || !newTrackTitle.value.trim()) return
-    trackSaving.value = true
-    error.value = ''
-    try {
-        const track = await addTrack(editingRelease.value.id, {
-            title: newTrackTitle.value.trim(),
-            track_number: nextTrackNumber(),
-        })
-        if (newTrackFile.value) {
-            const fileUrl = await uploadTrack(newTrackFile.value, editingRelease.value.id, track.id)
-            await supabase.from('tracks').update({ file_url: fileUrl }).eq('id', track.id)
-            await fetchReleases()
-        }
-        newTrackTitle.value = ''
-        newTrackFile.value = null
-        syncEditingTracks()
-    } catch (e: any) {
-        error.value = e.message ?? 'Failed to add track.'
-    } finally {
-        trackSaving.value = false
-    }
-}
-
-async function handleReorder(track: Track, direction: 'up' | 'down') {
-    if (!editingRelease.value) return
-    await reorderTrack(track.id, direction, editingRelease.value.tracks ?? [])
-    syncEditingTracks()
-}
-
-async function handleDeleteTrack(track: Track) {
-    if (!confirm(`Delete track "${track.title}"?`)) return
-    try {
-        await deleteTrack(track.id)
-        syncEditingTracks()
-    } catch (e: any) {
-        error.value = e.message ?? 'Failed to delete track.'
-    }
-}
-
-function syncEditingTracks() {
-    const updated = releases.value.find(r => r.id === editingRelease.value?.id)
-    if (updated) editingRelease.value = { ...updated }
 }
 
 async function handleDelete(release: Release) {
@@ -368,7 +209,7 @@ function formatAuditDate(d: string) {
                 <h1 class="page-title">Releases</h1>
                 <p class="page-subtitle">Manage albums, EPs, singles, and compilations</p>
             </div>
-            <SyvoraButton @click="openCreate">+ New Release</SyvoraButton>
+            <SyvoraButton @click="router.push('/releases/new')">+ New Release</SyvoraButton>
         </div>
 
         <div v-if="loading" class="loading-text">Loading releases…</div>
@@ -383,12 +224,14 @@ function formatAuditDate(d: string) {
                 :key="release.id"
                 class="release-card"
                 :class="{ 'is-active': isReleaseActive(release) }"
+                style="cursor: pointer;"
+                @click="router.push(`/releases/${release.id}`)"
             >
                 <!-- Artwork + play overlay -->
                 <div
                     class="release-artwork"
                     :class="{ clickable: releaseHasAudio(release) }"
-                    @click="playRelease(release)"
+                    @click.stop="playRelease(release)"
                 >
                     <img v-if="release.artwork_url" :src="release.artwork_url" :alt="release.title" />
                     <div v-else class="release-artwork-placeholder"><span>♪</span></div>
@@ -467,7 +310,7 @@ function formatAuditDate(d: string) {
 
                     <div class="release-actions">
                         <SyvoraButton v-if="contractsEnabled" variant="ghost" size="sm" @click.stop="createContractFromRelease(release)">Contract</SyvoraButton>
-                        <SyvoraButton variant="ghost" size="sm" @click.stop="openEdit(release)">Edit</SyvoraButton>
+                        <SyvoraButton variant="ghost" size="sm" @click.stop="router.push(`/releases/${release.id}/edit`)">Edit</SyvoraButton>
                         <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click.stop="handleDelete(release)">Delete</SyvoraButton>
                     </div>
                 </div>
@@ -527,104 +370,6 @@ function formatAuditDate(d: string) {
         </div>
     </Transition>
 
-    <!-- Edit / Create modal -->
-    <SyvoraModal v-if="showModal" :title="editingRelease ? 'Edit Release' : 'New Release'" size="lg" @close="closeModal">
-        <div class="modal-form">
-            <!-- Artwork -->
-            <div class="artwork-upload">
-                <div class="artwork-preview" @click="($refs.artworkInput as HTMLInputElement).click()">
-                    <img v-if="artworkPreview" :src="artworkPreview" alt="Artwork" />
-                    <div v-else class="artwork-placeholder">
-                        <span>+</span>
-                        <small>Upload artwork</small>
-                    </div>
-                    <div class="artwork-overlay">Change artwork</div>
-                </div>
-                <input ref="artworkInput" type="file" accept="image/*" class="hidden-input" @change="onArtworkPick" />
-            </div>
-
-            <div class="form-row">
-                <SyvoraFormField label="Title" for="r-title" class="flex-1">
-                    <SyvoraInput id="r-title" v-model="form.title" placeholder="Release title" />
-                </SyvoraFormField>
-                <SyvoraFormField label="Type" for="r-type">
-                    <select id="r-type" v-model="form.type" class="native-select">
-                        <option v-for="t in releaseTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-                    </select>
-                </SyvoraFormField>
-            </div>
-
-            <SyvoraFormField label="Artist" for="r-artist">
-                <SyvoraInput id="r-artist" v-model="form.artist" placeholder="Artist name" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Release Date" for="r-date">
-                <SyvoraInput id="r-date" v-model="form.release_date" type="date" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Description" for="r-desc">
-                <SyvoraTextarea id="r-desc" v-model="form.description" placeholder="Optional description…" :rows="2" />
-            </SyvoraFormField>
-
-            <p v-if="error" class="error-msg">{{ error }}</p>
-
-            <!-- Tracks section -->
-            <div v-if="editingRelease" class="tracks-section">
-                <div class="tracks-header">
-                    <span class="tracks-label">Tracks</span>
-                    <span v-if="showOrdering" class="tracks-hint">Use arrows to set track order</span>
-                </div>
-
-                <div v-if="sortedTracks.length" class="track-list">
-                    <div v-for="(track, idx) in sortedTracks" :key="track.id" class="track-item">
-                        <div v-if="showOrdering" class="track-reorder">
-                            <button class="reorder-btn" :disabled="idx === 0" title="Move up" @click="handleReorder(track, 'up')">▲</button>
-                            <button class="reorder-btn" :disabled="idx === sortedTracks.length - 1" title="Move down" @click="handleReorder(track, 'down')">▼</button>
-                        </div>
-                        <span class="track-num">{{ track.track_number ?? '—' }}</span>
-                        <span class="track-title-text">{{ track.title }}</span>
-                        <a v-if="track.file_url" :href="track.file_url" target="_blank" class="track-play" title="Open audio">▶</a>
-                        <span v-else class="track-no-file" title="No audio file">–</span>
-                        <button class="track-delete" title="Delete track" @click="handleDeleteTrack(track)">✕</button>
-                    </div>
-                </div>
-                <p v-else class="placeholder">No tracks yet — add one below.</p>
-
-                <div class="add-track">
-                    <p class="add-track-label">Add track</p>
-                    <SyvoraFormField label="Title" for="new-track-title">
-                        <SyvoraInput
-                            id="new-track-title"
-                            v-model="newTrackTitle"
-                            placeholder="Track title"
-                            @keydown.enter="handleAddTrack"
-                        />
-                    </SyvoraFormField>
-                    <SyvoraFormField label="Audio file" for="new-track-file">
-                        <label class="file-pick-btn">
-                            <input id="new-track-file" type="file" accept="audio/*" class="hidden-input" @change="onTrackFilePick" />
-                            <span class="file-pick-icon">♪</span>
-                            <span class="file-pick-text">{{ newTrackFile ? newTrackFile.name : 'Choose audio file (MP3, WAV, FLAC…)' }}</span>
-                        </label>
-                    </SyvoraFormField>
-                    <SyvoraButton size="sm" :loading="trackSaving" :disabled="!newTrackTitle.trim() || trackSaving" @click="handleAddTrack">
-                        {{ trackSaving ? 'Uploading…' : '+ Add Track' }}
-                    </SyvoraButton>
-                </div>
-            </div>
-
-            <p v-if="editingRelease === null" class="save-hint">
-                You can add tracks after creating the release.
-            </p>
-        </div>
-
-        <template #footer>
-            <SyvoraButton variant="ghost" @click="closeModal">Cancel</SyvoraButton>
-            <SyvoraButton :loading="saving" :disabled="saving" @click="saveRelease">
-                {{ editingRelease ? 'Save Changes' : 'Create Release' }}
-            </SyvoraButton>
-        </template>
-    </SyvoraModal>
 </template>
 
 <style scoped>
@@ -913,88 +658,6 @@ function formatAuditDate(d: string) {
 .player-slide-leave-active { transition: transform 0.3s ease, opacity 0.3s ease; }
 .player-slide-enter-from,
 .player-slide-leave-to { transform: translateY(100%); opacity: 0; }
-
-/* ── Modal ────────────────────────────────────────────────────────────────── */
-.modal-form { display: flex; flex-direction: column; gap: 1rem; }
-.artwork-upload { display: flex; justify-content: center; }
-.artwork-preview {
-    width: 140px; height: 140px; border-radius: 1rem; overflow: hidden;
-    cursor: pointer; position: relative;
-    background: rgba(115,195,254,0.08); border: 1.5px dashed rgba(115,195,254,0.3);
-    display: flex; align-items: center; justify-content: center;
-}
-.artwork-preview img { width: 100%; height: 100%; object-fit: cover; }
-.artwork-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: var(--color-text-muted); }
-.artwork-placeholder span { font-size: 2rem; color: var(--color-accent); }
-.artwork-overlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: #fff;
-    font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.15s;
-}
-.artwork-preview:hover .artwork-overlay { opacity: 1; }
-.form-row { display: flex; gap: 0.75rem; align-items: flex-end; }
-.flex-1 { flex: 1; min-width: 0; }
-.native-select {
-    width: 100%; padding: 0.75rem 1rem;
-    background: rgba(255,255,255,0.58); border: 1px solid rgba(255,255,255,0.52);
-    border-radius: var(--radius-sm); color: var(--color-text); font-size: 1rem; cursor: pointer;
-}
-.native-select:focus { outline: none; border-color: rgba(115,195,254,0.4); box-shadow: 0 0 0 3px rgba(115,195,254,0.1); }
-.hidden-input { display: none; }
-.save-hint { font-size: 0.8125rem; color: var(--color-text-muted); text-align: center; margin: 0; }
-
-.tracks-section {
-    border-top: 1px solid var(--color-border-subtle);
-    padding-top: 1rem;
-    display: flex; flex-direction: column; gap: 0.875rem;
-}
-.tracks-header { display: flex; align-items: center; justify-content: space-between; }
-.tracks-label { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.tracks-hint { font-size: 0.75rem; color: var(--color-text-muted); }
-
-.track-list { display: flex; flex-direction: column; gap: 0.3rem; }
-.track-item {
-    display: flex; align-items: center; gap: 0.625rem;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255,255,255,0.4); border-radius: 0.625rem;
-}
-.track-reorder { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
-.reorder-btn {
-    background: none; border: none; cursor: pointer; padding: 0 0.1rem;
-    font-size: 0.55rem; color: var(--color-text-muted); line-height: 1.4; transition: color 0.15s;
-}
-.reorder-btn:hover:not(:disabled) { color: var(--color-accent); }
-.reorder-btn:disabled { opacity: 0.25; cursor: default; }
-.track-num {
-    min-width: 1.5rem; text-align: right;
-    font-size: 0.8125rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0;
-}
-.track-title-text { flex: 1; font-size: 0.9rem; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.track-play { color: var(--color-accent); text-decoration: none; font-size: 0.8rem; flex-shrink: 0; }
-.track-no-file { font-size: 0.75rem; color: var(--color-text-muted); flex-shrink: 0; }
-.track-delete {
-    background: none; border: none; color: var(--color-text-muted);
-    cursor: pointer; font-size: 0.7rem; padding: 0.2rem 0.3rem;
-    border-radius: 0.25rem; transition: color 0.15s, background 0.15s; flex-shrink: 0;
-}
-.track-delete:hover { color: var(--color-error); background: rgba(220,38,38,0.08); }
-
-.add-track {
-    display: flex; flex-direction: column; gap: 0.75rem;
-    padding: 0.875rem; background: rgba(255,255,255,0.3);
-    border-radius: 0.875rem; border: 1px dashed rgba(0,0,0,0.1);
-}
-.add-track-label { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-muted); margin: 0; }
-
-.file-pick-btn {
-    display: flex; align-items: center; gap: 0.625rem;
-    padding: 0.625rem 1rem;
-    background: rgba(255,255,255,0.5); border: 1px dashed rgba(0,0,0,0.15);
-    border-radius: var(--radius-sm); cursor: pointer; transition: background 0.15s; width: 100%;
-}
-.file-pick-btn:hover { background: rgba(255,255,255,0.75); }
-.file-pick-icon { font-size: 1rem; color: var(--color-accent); flex-shrink: 0; }
-.file-pick-text { font-size: 0.8125rem; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 :deep(.btn-danger) { color: var(--color-error); }
 </style>

@@ -85,7 +85,7 @@ const isMobile = useIsMobile()
 .shell-header {
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 600;
     padding: 0 1.5rem;
     height: 4rem;
     display: flex;

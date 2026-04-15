@@ -3,8 +3,11 @@ import { supabase } from "../lib/supabase";
 import { useMandator } from "../composables/useMandator";
 import LoginView from "../views/LoginView.vue";
 import ReleasesView from "../views/ReleasesView.vue";
+import ReleaseDetailView from "../views/ReleaseDetailView.vue";
+import ReleaseEditorView from "../views/ReleaseEditorView.vue";
 import EventsView from "../views/EventsView.vue";
 import EventDetailView from "../views/EventDetailView.vue";
+import EventEditorView from "../views/EventEditorView.vue";
 import ArtistsView from "../views/ArtistsView.vue";
 import ArtistDetailView from "../views/ArtistDetailView.vue";
 import ArtistScheduleView from "../views/ArtistScheduleView.vue";
@@ -13,6 +16,7 @@ import AdminView from "../views/AdminView.vue";
 import FinancialsView from "../views/FinancialsView.vue";
 import RadiosView from "../views/RadiosView.vue";
 import RadioDetailView from "../views/RadioDetailView.vue";
+import RadioEditorView from "../views/RadioEditorView.vue";
 import AssociationsView from "../views/AssociationsView.vue";
 import AssociationMemberDetailView from "../views/AssociationMemberDetailView.vue";
 import MeetingsView from "../views/MeetingsView.vue";
@@ -32,10 +36,17 @@ const router = createRouter({
         { path: "/login", component: LoginView, meta: { public: true } },
         { path: "/", component: { render: () => null }, meta: { requiresAuth: true, redirectToDefault: true } },
         { path: "/releases", component: ReleasesView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/new", component: ReleaseEditorView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/:id", component: ReleaseDetailView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/:id/edit", component: ReleaseEditorView, meta: { requiresAuth: true, module: "releases" } },
         { path: "/events", component: EventsView, meta: { requiresAuth: true, module: "events" } },
+        { path: "/events/new", component: EventEditorView, meta: { requiresAuth: true, module: "events" } },
         { path: "/events/:id", component: EventDetailView, meta: { requiresAuth: true, module: "events" } },
+        { path: "/events/:id/edit", component: EventEditorView, meta: { requiresAuth: true, module: "events" } },
         { path: "/radios", component: RadiosView, meta: { requiresAuth: true, module: "radios" } },
+        { path: "/radios/new", component: RadioEditorView, meta: { requiresAuth: true, module: "radios" } },
         { path: "/radios/:id", component: RadioDetailView, meta: { requiresAuth: true, module: "radios" } },
+        { path: "/radios/:id/edit", component: RadioEditorView, meta: { requiresAuth: true, module: "radios" } },
         { path: "/artists", component: ArtistsView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/artists/:id", component: ArtistDetailView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/artists/:id/schedule", component: ArtistScheduleView, meta: { requiresAuth: true, module: "artists" } },
