@@ -307,7 +307,7 @@ async function handleDeleteTrack(track: Track) {
         <template #description>
             <SyvoraFormField label="Description" for="r-desc">
                 <SyvoraTextarea id="r-desc" v-model="form.description"
-                    placeholder="Optional description..." :rows="6" />
+                    placeholder="Optional description..." :rows="16" />
             </SyvoraFormField>
             <p v-if="isNew" class="save-hint">
                 You can add tracks after saving the release.
@@ -461,6 +461,6 @@ async function handleDeleteTrack(track: Track) {
     color: #fff;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    z-index: 600;
+    z-index: 700;
 }
 </style>

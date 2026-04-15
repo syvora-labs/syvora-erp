@@ -175,7 +175,7 @@ watch(artistPicker, (val) => {
                     id="rd-desc"
                     v-model="form.description"
                     placeholder="Radio description..."
-                    :rows="6"
+                    :rows="16"
                 />
             </SyvoraFormField>
         </template>
@@ -242,6 +242,6 @@ watch(artistPicker, (val) => {
     color: #fff;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    z-index: 600;
+    z-index: 700;
 }
 </style>

@@ -208,7 +208,7 @@ function handleCancel() {
         <template #description>
             <SyvoraFormField label="Description" for="ev-desc">
                 <SyvoraTextarea id="ev-desc" v-model="form.description"
-                    placeholder="Event description..." :rows="6" />
+                    placeholder="Event description..." :rows="16" />
             </SyvoraFormField>
         </template>
 
@@ -337,6 +337,6 @@ function handleCancel() {
     color: #fff;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    z-index: 600;
+    z-index: 700;
 }
 </style>
