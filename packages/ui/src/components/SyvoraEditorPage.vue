@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
 watch(() => props.sections.map(s => s.id).join(','), () => {
     // Re-observe when sections change (e.g., Tracks appearing after first save)
     createObserver()
-})
+}, { flush: 'post' })
 
 const headerLabel = computed(() => {
     if (props.subtitle) return `${props.title}: ${props.subtitle}`
@@ -238,6 +238,7 @@ const headerLabel = computed(() => {
 }
 
 .editor-body {
+    position: relative;
     flex: 1;
     overflow-y: auto;
     padding: 1.5rem 2rem 6rem;
