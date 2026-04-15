@@ -31,7 +31,6 @@ function emptyForm(): RadioForm {
 
 const form = ref<RadioForm>(emptyForm())
 const lastSaved = ref<RadioForm>(emptyForm())
-const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 
@@ -49,7 +48,6 @@ const { confirmDiscard } = useDirtyGuard(dirty)
 onMounted(async () => {
     fetchArtists()
     if (radioId.value) {
-        loading.value = true
         const r = await fetchRadioById(radioId.value)
         if (r) {
             form.value = {
@@ -63,7 +61,6 @@ onMounted(async () => {
         } else {
             error.value = 'Radio not found.'
         }
-        loading.value = false
     }
 })
 
