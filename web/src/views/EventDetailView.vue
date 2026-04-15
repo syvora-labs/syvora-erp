@@ -18,9 +18,9 @@ const router = useRouter()
 const eventId = computed(() => route.params.id as string)
 
 const {
-    fetchEventById, updateEvent, deleteEvent,
+    fetchEventById, deleteEvent,
     publishEvent, unpublishEvent, archiveEvent, unarchiveEvent,
-    uploadEventArtwork, fetchEvents,
+    fetchEvents,
 } = useEvents()
 
 const {
@@ -150,93 +150,6 @@ async function handleDelete() {
         router.push('/events')
     } catch (e: any) {
         alert(e.message ?? 'Failed to delete.')
-    }
-}
-
-// ── Edit Modal ───────────────────────────────────────────────────────────────
-
-const showEditModal = ref(false)
-const saving = ref(false)
-const editError = ref('')
-const editForm = ref({
-    title: '',
-    description: '',
-    lineupRaw: '',
-    location: '',
-    event_date: '',
-    event_time: '',
-    ticket_link: '',
-    ticket_management: 'internal' as 'internal' | 'external',
-})
-const artworkFile = ref<File | null>(null)
-const artworkPreview = ref<string | null>(null)
-
-function openEdit() {
-    if (!event.value) return
-    const dt = event.value.event_date ? new Date(event.value.event_date) : null
-    editForm.value = {
-        title: event.value.title,
-        description: event.value.description ?? '',
-        lineupRaw: event.value.lineup.join(', '),
-        location: event.value.location ?? '',
-        event_date: dt ? (dt.toISOString().split('T')[0] ?? '') : '',
-        event_time: dt ? dt.toTimeString().slice(0, 5) : '',
-        ticket_link: event.value.ticket_link ?? '',
-        ticket_management: event.value.ticket_management ?? 'internal',
-    }
-    artworkFile.value = null
-    artworkPreview.value = event.value.artwork_url ?? null
-    editError.value = ''
-    showEditModal.value = true
-}
-
-function closeEditModal() {
-    showEditModal.value = false
-}
-
-function onArtworkPick(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    artworkFile.value = file
-    artworkPreview.value = URL.createObjectURL(file)
-}
-
-function buildEventDate(): string | null {
-    if (!editForm.value.event_date) return null
-    const time = editForm.value.event_time || '00:00'
-    return new Date(`${editForm.value.event_date}T${time}`).toISOString()
-}
-
-async function saveEdit() {
-    if (!event.value) return
-    if (!editForm.value.title.trim()) {
-        editError.value = 'Title is required.'
-        return
-    }
-    saving.value = true
-    editError.value = ''
-    try {
-        const lineup = editForm.value.lineupRaw.split(',').map(s => s.trim()).filter(Boolean)
-        let artwork_url = event.value.artwork_url
-        if (artworkFile.value) {
-            artwork_url = await uploadEventArtwork(artworkFile.value, event.value.id)
-        }
-        await updateEvent(event.value.id, {
-            title: editForm.value.title.trim(),
-            description: editForm.value.description.trim() || null,
-            lineup,
-            location: editForm.value.location.trim() || null,
-            event_date: buildEventDate(),
-            ticket_link: editForm.value.ticket_link.trim() || null,
-            ticket_management: editForm.value.ticket_management,
-            artwork_url,
-        })
-        event.value = await fetchEventById(eventId.value)
-        closeEditModal()
-    } catch (e: any) {
-        editError.value = e.message ?? 'Failed to save.'
-    } finally {
-        saving.value = false
     }
 }
 
@@ -450,7 +363,7 @@ function formatAmount(tx: FinancialTransaction) {
                     <p v-if="event.location" class="event-location">{{ event.location }}</p>
                     <p class="event-date-line">{{ formatEventDate(event.event_date) }}</p>
                     <div class="event-header-actions">
-                        <SyvoraButton size="sm" @click="openEdit">Edit</SyvoraButton>
+                        <SyvoraButton size="sm" @click="router.push(`/events/${eventId}/edit`)">Edit</SyvoraButton>
                         <SyvoraButton v-if="event.is_draft" size="sm" @click="handlePublish">Publish</SyvoraButton>
                         <SyvoraButton v-else variant="ghost" size="sm" @click="handleUnpublish">Revert to Draft</SyvoraButton>
                         <SyvoraButton v-if="!event.is_archived" variant="ghost" size="sm" @click="handleArchive">Archive</SyvoraButton>
@@ -567,79 +480,6 @@ function formatAmount(tx: FinancialTransaction) {
 
         <div v-else class="loading-text">Event not found.</div>
     </div>
-
-    <!-- Edit Modal -->
-    <SyvoraModal v-if="showEditModal" title="Edit Event" size="lg" @close="closeEditModal">
-        <div class="modal-form">
-            <div class="artwork-upload">
-                <div class="artwork-preview" @click="($refs.artworkInput as HTMLInputElement).click()">
-                    <img v-if="artworkPreview" :src="artworkPreview" alt="Artwork" />
-                    <div v-else class="artwork-placeholder">
-                        <span>+</span>
-                        <small>Event artwork</small>
-                    </div>
-                    <div class="artwork-overlay">Change artwork</div>
-                </div>
-                <input ref="artworkInput" type="file" accept="image/*" class="hidden-input" @change="onArtworkPick" />
-            </div>
-
-            <div v-if="event && !event.is_draft" class="published-notice">
-                <span class="badge badge-published">Published</span>
-                Editing will update the live event.
-            </div>
-
-            <SyvoraFormField label="Event Title" for="ev-title">
-                <SyvoraInput id="ev-title" v-model="editForm.title" placeholder="Event name" />
-            </SyvoraFormField>
-
-            <div class="form-row">
-                <SyvoraFormField label="Date" for="ev-date" class="flex-1">
-                    <SyvoraInput id="ev-date" v-model="editForm.event_date" type="date" />
-                </SyvoraFormField>
-                <SyvoraFormField label="Time" for="ev-time" class="flex-1">
-                    <SyvoraInput id="ev-time" v-model="editForm.event_time" type="time" />
-                </SyvoraFormField>
-            </div>
-
-            <SyvoraFormField label="Location" for="ev-location">
-                <SyvoraInput id="ev-location" v-model="editForm.location" placeholder="Venue name, city" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Lineup (comma-separated)" for="ev-lineup">
-                <SyvoraInput id="ev-lineup" v-model="editForm.lineupRaw" placeholder="Artist One, Artist Two, DJ Three" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Description" for="ev-desc">
-                <SyvoraTextarea id="ev-desc" v-model="editForm.description" placeholder="Event description…" :rows="3" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Ticket Link" for="ev-tickets">
-                <SyvoraInput id="ev-tickets" v-model="editForm.ticket_link" placeholder="https://tickets.example.com" />
-            </SyvoraFormField>
-
-            <SyvoraFormField label="Ticket Management">
-                <div class="toggle-row">
-                    <label class="toggle-option" :class="{ active: editForm.ticket_management === 'internal' }">
-                        <input type="radio" v-model="editForm.ticket_management" value="internal" class="hidden-input" />
-                        Internal
-                    </label>
-                    <label class="toggle-option" :class="{ active: editForm.ticket_management === 'external' }">
-                        <input type="radio" v-model="editForm.ticket_management" value="external" class="hidden-input" />
-                        External
-                    </label>
-                </div>
-                <small class="field-hint">
-                    {{ editForm.ticket_management === 'internal' ? 'Tickets are managed in Sales.' : 'Tickets are managed externally. This event won\'t appear in Sales.' }}
-                </small>
-            </SyvoraFormField>
-
-            <p v-if="editError" class="error-msg">{{ editError }}</p>
-        </div>
-        <template #footer>
-            <SyvoraButton variant="ghost" @click="closeEditModal">Cancel</SyvoraButton>
-            <SyvoraButton :loading="saving" :disabled="saving" @click="saveEdit">Save Changes</SyvoraButton>
-        </template>
-    </SyvoraModal>
 
     <!-- Team Assignment Modal -->
     <SyvoraModal v-if="showTeamModal" :title="editingAssignment ? 'Edit Assignment' : 'Assign Team Member'" size="md" @close="closeTeamModal">
@@ -813,52 +653,6 @@ function formatAmount(tx: FinancialTransaction) {
 
 /* ── Modal ────────────────────────────────────────────────────────────── */
 .modal-form { display: flex; flex-direction: column; gap: 1rem; }
-.artwork-upload { display: flex; justify-content: center; }
-.artwork-preview {
-    width: 140px; height: 140px; border-radius: 1rem; overflow: hidden;
-    cursor: pointer; position: relative;
-    background: rgba(115,195,254,0.08); border: 1.5px dashed rgba(115,195,254,0.3);
-    display: flex; align-items: center; justify-content: center;
-}
-.artwork-preview img { width: 100%; height: 100%; object-fit: cover; }
-.artwork-placeholder { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: var(--color-text-muted); }
-.artwork-placeholder span { font-size: 2rem; color: var(--color-accent); }
-.artwork-overlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: #fff;
-    font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.15s;
-}
-.artwork-preview:hover .artwork-overlay { opacity: 1; }
-.form-row { display: flex; gap: 0.75rem; align-items: flex-end; }
-.flex-1 { flex: 1; min-width: 0; }
-.hidden-input { display: none; }
-
-.toggle-row {
-    display: flex; gap: 0; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;
-}
-.toggle-option {
-    flex: 1; text-align: center; padding: 0.5rem 0.75rem;
-    font-size: 0.8125rem; font-weight: 600; cursor: pointer;
-    background: transparent; color: var(--color-text-muted);
-    transition: background 0.15s, color 0.15s;
-    border-right: 1px solid var(--color-border);
-}
-.toggle-option:last-child { border-right: none; }
-.toggle-option.active {
-    background: rgba(115, 195, 254, 0.1); color: var(--color-accent);
-}
-.field-hint {
-    display: block; margin-top: 0.375rem;
-    font-size: 0.75rem; color: var(--color-text-muted);
-}
-
-.published-notice {
-    display: flex; align-items: center; gap: 0.5rem;
-    font-size: 0.8125rem; color: var(--color-text-muted);
-    padding: 0.5rem 0.75rem;
-    background: rgba(115,195,254,0.06); border-radius: var(--radius-sm);
-    border: 1px solid rgba(115,195,254,0.15);
-}
 
 .error-msg { color: var(--color-error, #f87171); font-size: 0.85rem; margin: 0; }
 
@@ -896,7 +690,6 @@ function formatAmount(tx: FinancialTransaction) {
 .mobile .event-name { font-size: 1.5rem; }
 .mobile .event-name-row { justify-content: center; }
 .mobile .event-header-actions { justify-content: center; }
-.mobile .form-row { flex-direction: column; }
 .mobile .item-main { flex-direction: column; }
 .mobile .item-actions { align-self: flex-end; }
 .mobile .section-header { flex-wrap: wrap; gap: 0.75rem; }
