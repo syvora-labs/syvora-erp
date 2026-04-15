@@ -2,7 +2,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRadios, type Radio, type RadioFile } from '../composables/useRadios'
-import { useArtists } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraEmptyState, SyvoraTabs, useIsMobile,
 } from '@syvora/ui'
@@ -19,8 +18,6 @@ const {
     uploadRadioFile, deleteRadioFile,
 } = useRadios()
 
-const { fetchArtists } = useArtists()
-
 const radio = ref<Radio | null>(null)
 const loadingRadio = ref(true)
 
@@ -32,7 +29,7 @@ const tabs = computed<TabItem[]>(() => [
 ])
 
 onMounted(async () => {
-    await Promise.all([reloadRadio(), fetchArtists()])
+    await reloadRadio()
 })
 
 async function reloadRadio() {
