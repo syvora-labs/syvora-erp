@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRadios, type Radio } from '../composables/useRadios'
-import { useArtists } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraEmptyState, SyvoraTabs
 } from '@syvora/ui'
@@ -19,13 +18,10 @@ const {
     publishRadio, unpublishRadio, archiveRadio, unarchiveRadio,
 } = useRadios()
 
-const { fetchArtists } = useArtists()
-
 const activeTab = ref<'active' | 'archived'>('active')
 
 onMounted(() => {
     fetchRadios()
-    fetchArtists()
 })
 
 async function handlePublish(radio: Radio) {
