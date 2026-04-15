@@ -109,7 +109,11 @@ port = 54324
 [storage]
 enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
-file_size_limit = "50MiB"
+# Raised from the 50MiB default so press-kit videos (up to ~500MB each, bucket
+# cap of 5GB per object) are accepted by the local stack. On the hosted
+# project, the equivalent knob lives in the Supabase Dashboard under
+# Storage → Settings → "Upload file size limit".
+file_size_limit = "5GiB"
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]
@@ -367,6 +371,15 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+# The public press-kit download endpoint is intentionally unauthenticated:
+# anyone with a valid share token (and the token is not revoked/expired) may
+# fetch the manifest and the zip. Disabling JWT verification also disables the
+# apikey requirement, which is necessary because the zip download is triggered
+# by plain browser navigation (window.location.assign) and cannot attach custom
+# headers.
+[functions.press-kit-download]
+verify_jwt = false
 
 [analytics]
 enabled = true

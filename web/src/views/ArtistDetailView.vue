@@ -4,6 +4,8 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useArtists, type Artist, type ArtistNote, type ArtistShow, type ArtistBooking } from '../composables/useArtists'
 import { useContracts, type Contract } from '../composables/useContracts'
 import { useMandator } from '../composables/useMandator'
+import { useArtistPressKit } from '../composables/useArtistPressKit'
+import ArtistPressKitPanel from '../components/ArtistPressKitPanel.vue'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
 import {
@@ -27,6 +29,7 @@ const {
 
 const { fetchContractsByArtist } = useContracts()
 const { contractsEnabled } = useMandator()
+const { files: pressKitFiles } = useArtistPressKit()
 
 const artist = ref<Artist | null>(null)
 const notes = ref<ArtistNote[]>([])
@@ -46,6 +49,7 @@ const tabs = computed<TabItem[]>(() => {
     ]
     if (artist.value?.is_managed) {
         items.push({ key: 'bookings', label: 'Bookings', count: bookings.value.length })
+        items.push({ key: 'press-kit', label: 'Press Kit', count: pressKitFiles.value.filter(f => f.artist_id === artistId.value).length })
     }
     items.push({ key: 'notes', label: 'Notes', count: notes.value.length })
     if (contractsEnabled.value) {
@@ -511,6 +515,11 @@ async function exportArtistQrPdf() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Press Kit tab -->
+            <div v-if="activeTab === 'press-kit' && artist.is_managed" class="tab-content">
+                <ArtistPressKitPanel :artist-id="artistId" />
             </div>
 
             <!-- Notes tab -->

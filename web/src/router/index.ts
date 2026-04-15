@@ -25,6 +25,7 @@ import LightsView from "../views/LightsView.vue";
 import ContractsView from "../views/ContractsView.vue";
 import ContractTemplatesView from "../views/ContractTemplatesView.vue";
 import ContractSignView from "../views/ContractSignView.vue";
+import PressKitPublicView from "../views/PressKitPublicView.vue";
 import EmailView from "../views/EmailView.vue";
 import TeamView from "../views/TeamView.vue";
 import SalesView from "../views/SalesView.vue";
@@ -66,6 +67,7 @@ const router = createRouter({
         { path: "/sales", component: SalesView, meta: { requiresAuth: true, module: "sales" } },
         { path: "/sales/:eventId", component: SalesEventView, meta: { requiresAuth: true, module: "sales" } },
         { path: "/sign/:token", component: ContractSignView, meta: { public: true } },
+        { path: "/press-kit/:token", component: PressKitPublicView, meta: { public: true } },
         { path: "/profile", component: ProfileView, meta: { requiresAuth: true } },
         { path: "/admin", component: AdminView, meta: { requiresAuth: true } },
     ],
