@@ -368,6 +368,15 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# The public press-kit download endpoint is intentionally unauthenticated:
+# anyone with a valid share token (and the token is not revoked/expired) may
+# fetch the manifest and the zip. Disabling JWT verification also disables the
+# apikey requirement, which is necessary because the zip download is triggered
+# by plain browser navigation (window.location.assign) and cannot attach custom
+# headers.
+[functions.press-kit-download]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
