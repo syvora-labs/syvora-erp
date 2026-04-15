@@ -3,6 +3,8 @@ import { supabase } from "../lib/supabase";
 import { useMandator } from "../composables/useMandator";
 import LoginView from "../views/LoginView.vue";
 import ReleasesView from "../views/ReleasesView.vue";
+import ReleaseDetailView from "../views/ReleaseDetailView.vue";
+import ReleaseEditorView from "../views/ReleaseEditorView.vue";
 import EventsView from "../views/EventsView.vue";
 import EventDetailView from "../views/EventDetailView.vue";
 import EventEditorView from "../views/EventEditorView.vue";
@@ -34,6 +36,9 @@ const router = createRouter({
         { path: "/login", component: LoginView, meta: { public: true } },
         { path: "/", component: { render: () => null }, meta: { requiresAuth: true, redirectToDefault: true } },
         { path: "/releases", component: ReleasesView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/new", component: ReleaseEditorView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/:id", component: ReleaseDetailView, meta: { requiresAuth: true, module: "releases" } },
+        { path: "/releases/:id/edit", component: ReleaseEditorView, meta: { requiresAuth: true, module: "releases" } },
         { path: "/events", component: EventsView, meta: { requiresAuth: true, module: "events" } },
         { path: "/events/new", component: EventEditorView, meta: { requiresAuth: true, module: "events" } },
         { path: "/events/:id", component: EventDetailView, meta: { requiresAuth: true, module: "events" } },
