@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useIsMobile } from '../composables/useIsMobile'
 import SyvoraButton from './SyvoraButton.vue'
 
@@ -25,60 +25,18 @@ const emit = defineEmits<{
 const isMobile = useIsMobile()
 
 const activeSection = ref<string>(props.sections[0]?.id ?? '')
-const bodyRef = ref<HTMLElement | null>(null)
-const sectionRefs = ref<Record<string, HTMLElement | null>>({})
 
-function setSectionRef(id: string, el: Element | null) {
-    sectionRefs.value[id] = el as HTMLElement | null
-}
-
-function scrollToSection(id: string) {
-    const el = sectionRefs.value[id]
-    if (!el || !bodyRef.value) return
-    const top = el.offsetTop - 16
-    bodyRef.value.scrollTo({ top, behavior: 'smooth' })
-}
-
-let observer: IntersectionObserver | null = null
-
-function createObserver() {
-    if (!bodyRef.value) return
-    observer?.disconnect()
-    observer = new IntersectionObserver(
-        (entries) => {
-            // Pick the section whose top is closest to the top of the viewport
-            const visible = entries
-                .filter(e => e.isIntersecting)
-                .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-            if (visible[0]?.target instanceof HTMLElement) {
-                const id = visible[0].target.dataset.sectionId
-                if (id) activeSection.value = id
-            }
-        },
-        {
-            root: bodyRef.value,
-            rootMargin: '0px 0px -60% 0px',
-            threshold: 0,
-        }
-    )
-    for (const id of Object.keys(sectionRefs.value)) {
-        const el = sectionRefs.value[id]
-        if (el) observer.observe(el)
-    }
-}
-
-onMounted(() => {
-    createObserver()
-})
-
-onBeforeUnmount(() => {
-    observer?.disconnect()
-})
-
+// If the active section disappears from the list (shouldn't happen in current
+// usage, but cheap to guard), fall back to the first available section.
 watch(() => props.sections.map(s => s.id).join(','), () => {
-    // Re-observe when sections change (e.g., Tracks appearing after first save)
-    createObserver()
-}, { flush: 'post' })
+    if (!props.sections.find(s => s.id === activeSection.value)) {
+        activeSection.value = props.sections[0]?.id ?? ''
+    }
+})
+
+const activeSectionLabel = computed(
+    () => props.sections.find(s => s.id === activeSection.value)?.label ?? ''
+)
 
 const headerLabel = computed(() => {
     if (props.subtitle) return `${props.title}: ${props.subtitle}`
@@ -112,23 +70,25 @@ const headerLabel = computed(() => {
                     :key="section.id"
                     class="editor-nav-item"
                     :class="{ 'editor-nav-item--active': activeSection === section.id }"
-                    @click="scrollToSection(section.id)"
+                    @click="activeSection = section.id"
                 >
                     {{ section.label }}
                 </button>
             </nav>
 
-            <div ref="bodyRef" class="editor-body">
-                <section
-                    v-for="section in sections"
-                    :key="section.id"
-                    :ref="(el) => setSectionRef(section.id, el as Element | null)"
-                    :data-section-id="section.id"
-                    class="editor-section"
-                >
-                    <h2 class="editor-section-title">{{ section.label }}</h2>
+            <div v-else class="editor-nav-mobile">
+                <select v-model="activeSection" class="editor-nav-mobile-select">
+                    <option v-for="section in sections" :key="section.id" :value="section.id">
+                        {{ section.label }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="editor-body">
+                <section class="editor-section">
+                    <h2 class="editor-section-title">{{ activeSectionLabel }}</h2>
                     <div class="editor-section-body">
-                        <slot :name="section.id" />
+                        <slot :name="activeSection" />
                     </div>
                 </section>
             </div>
@@ -139,7 +99,10 @@ const headerLabel = computed(() => {
 <style scoped>
 .editor-page {
     position: fixed;
-    inset: 0;
+    top: 4rem;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 500;
     display: flex;
     flex-direction: column;
@@ -232,17 +195,28 @@ const headerLabel = computed(() => {
     font-weight: 600;
 }
 
+.editor-nav-mobile {
+    padding: 0.75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+}
+
+.editor-nav-mobile-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.5rem;
+    background: #fff;
+    font-size: 0.875rem;
+    color: var(--color-text);
+}
+
 .editor-body {
     position: relative;
     flex: 1;
     overflow-y: auto;
-    padding: 1.5rem 2rem 6rem;
-    max-width: 800px;
-    width: 100%;
-}
-
-.editor-section {
-    margin-bottom: 2.5rem;
+    padding: 1.5rem 2rem 2rem;
 }
 
 .editor-section-title {
@@ -258,11 +232,16 @@ const headerLabel = computed(() => {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-width: 720px;
 }
 
 @media (max-width: 600px) {
+    .editor-shell {
+        flex-direction: column;
+    }
+
     .editor-body {
-        padding: 1rem 1rem 6rem;
+        padding: 1rem 1rem 2rem;
     }
 }
 </style>
