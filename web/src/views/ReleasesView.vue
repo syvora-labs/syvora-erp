@@ -231,7 +231,7 @@ function formatAuditDate(d: string) {
                 <div
                     class="release-artwork"
                     :class="{ clickable: releaseHasAudio(release) }"
-                    @click="playRelease(release)"
+                    @click.stop="playRelease(release)"
                 >
                     <img v-if="release.artwork_url" :src="release.artwork_url" :alt="release.title" />
                     <div v-else class="release-artwork-placeholder"><span>♪</span></div>
