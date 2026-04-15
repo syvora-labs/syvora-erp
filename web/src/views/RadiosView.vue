@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRadios, type Radio, type RadioFile } from '../composables/useRadios'
 import { useArtists } from '../composables/useArtists'
 import {
     SyvoraButton, SyvoraModal, SyvoraFormField,
     SyvoraInput, SyvoraTextarea, SyvoraEmptyState, SyvoraTabs
 } from '@syvora/ui'
+
+const router = useRouter()
+
+function goToRadio(radio: Radio) {
+    router.push(`/radios/${radio.id}`)
+}
 
 const {
     activeRadios, archivedRadios, loading,
@@ -215,8 +222,9 @@ function formatFileSize(bytes: number | null) {
                 <div
                     v-for="radio in activeRadios"
                     :key="radio.id"
-                    class="radio-card"
+                    class="radio-card radio-card--clickable"
                     :class="{ 'radio-card--draft': radio.is_draft }"
+                    @click="goToRadio(radio)"
                 >
                     <div class="radio-body">
                         <div class="radio-meta">
@@ -239,10 +247,10 @@ function formatFileSize(bytes: number | null) {
                         </div>
 
                         <div class="radio-footer">
-                            <a v-if="radio.soundcloud_link && !radio.is_draft" :href="radio.soundcloud_link" target="_blank" class="soundcloud-link">
+                            <a v-if="radio.soundcloud_link && !radio.is_draft" :href="radio.soundcloud_link" target="_blank" class="soundcloud-link" @click.stop>
                                 SoundCloud &#8599;
                             </a>
-                            <div class="radio-actions">
+                            <div class="radio-actions" @click.stop>
                                 <SyvoraButton v-if="radio.is_draft" size="sm" :disabled="!radio.soundcloud_link" :title="!radio.soundcloud_link ? 'Add a SoundCloud link before publishing' : ''" @click="handlePublish(radio)">
                                     Publish
                                 </SyvoraButton>
@@ -269,7 +277,8 @@ function formatFileSize(bytes: number | null) {
                 <div
                     v-for="radio in archivedRadios"
                     :key="radio.id"
-                    class="radio-card radio-card--archived"
+                    class="radio-card radio-card--clickable radio-card--archived"
+                    @click="goToRadio(radio)"
                 >
                     <div class="radio-body">
                         <div class="radio-meta">
@@ -293,7 +302,7 @@ function formatFileSize(bytes: number | null) {
                         </div>
 
                         <div class="radio-footer">
-                            <div class="radio-actions">
+                            <div class="radio-actions" @click.stop>
                                 <SyvoraButton variant="ghost" size="sm" @click="handleUnarchive(radio)">Restore</SyvoraButton>
                                 <SyvoraButton variant="ghost" size="sm" class="btn-danger" @click="handleDelete(radio)">Delete</SyvoraButton>
                             </div>
@@ -427,6 +436,7 @@ function formatFileSize(bytes: number | null) {
     transition: box-shadow 0.3s;
 }
 .radio-card:hover { box-shadow: var(--shadow-card-hover); }
+.radio-card--clickable { cursor: pointer; }
 .radio-card--draft {
     opacity: 0.82;
     border-style: dashed;

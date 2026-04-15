@@ -36,6 +36,41 @@ export function useRadios() {
     const activeRadios = computed(() => radios.value.filter(r => !r.is_archived))
     const archivedRadios = computed(() => radios.value.filter(r => r.is_archived).reverse())
 
+    async function fetchRadioById(id: string): Promise<Radio | null> {
+        const { data, error } = await supabase
+            .from('radios')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle()
+        if (error) throw error
+        if (!data) return null
+
+        const raw = data as Omit<Radio, 'creator_name' | 'updater_name' | 'files'>
+
+        const userIds = [raw.created_by, raw.updated_by].filter((id): id is string => !!id)
+        let profileMap: Record<string, string | null> = {}
+        if (userIds.length) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, display_name')
+                .in('id', userIds)
+            profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p.display_name]))
+        }
+
+        const { data: files } = await supabase
+            .from('radio_files')
+            .select('*')
+            .eq('radio_id', id)
+            .order('created_at', { ascending: true })
+
+        return {
+            ...raw,
+            creator_name: raw.created_by ? (profileMap[raw.created_by] ?? null) : null,
+            updater_name: raw.updated_by ? (profileMap[raw.updated_by] ?? null) : null,
+            files: (files ?? []) as RadioFile[],
+        }
+    }
+
     async function fetchRadios() {
         loading.value = true
         const { data, error } = await supabase
@@ -157,10 +192,14 @@ export function useRadios() {
     }
 
     async function deleteRadio(id: string) {
-        // Delete files from storage first
-        const radio = radios.value.find(r => r.id === id)
-        if (radio?.files.length) {
-            const paths = radio.files.map(f => `radios/${id}/${f.file_name}`)
+        // Fetch files directly from the DB so storage cleanup works
+        // even when the radios list hasn't been loaded (e.g., from the detail view).
+        const { data: files } = await supabase
+            .from('radio_files')
+            .select('file_name')
+            .eq('radio_id', id)
+        if (files?.length) {
+            const paths = files.map(f => `radios/${id}/${f.file_name}`)
             await supabase.storage.from('artwork').remove(paths)
         }
         const { error } = await supabase
@@ -214,6 +253,7 @@ export function useRadios() {
         archivedRadios,
         loading,
         fetchRadios,
+        fetchRadioById,
         createRadio,
         updateRadio,
         deleteRadio,

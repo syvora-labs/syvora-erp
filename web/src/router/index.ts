@@ -12,6 +12,7 @@ import ProfileView from "../views/ProfileView.vue";
 import AdminView from "../views/AdminView.vue";
 import FinancialsView from "../views/FinancialsView.vue";
 import RadiosView from "../views/RadiosView.vue";
+import RadioDetailView from "../views/RadioDetailView.vue";
 import AssociationsView from "../views/AssociationsView.vue";
 import AssociationMemberDetailView from "../views/AssociationMemberDetailView.vue";
 import MeetingsView from "../views/MeetingsView.vue";
@@ -34,6 +35,7 @@ const router = createRouter({
         { path: "/events", component: EventsView, meta: { requiresAuth: true, module: "events" } },
         { path: "/events/:id", component: EventDetailView, meta: { requiresAuth: true, module: "events" } },
         { path: "/radios", component: RadiosView, meta: { requiresAuth: true, module: "radios" } },
+        { path: "/radios/:id", component: RadioDetailView, meta: { requiresAuth: true, module: "radios" } },
         { path: "/artists", component: ArtistsView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/artists/:id", component: ArtistDetailView, meta: { requiresAuth: true, module: "artists" } },
         { path: "/artists/:id/schedule", component: ArtistScheduleView, meta: { requiresAuth: true, module: "artists" } },
