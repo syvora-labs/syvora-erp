@@ -49,7 +49,6 @@ const error = ref('')
 const newTrackTitle = ref('')
 const newTrackFile = ref<File | null>(null)
 const trackSaving = ref(false)
-const showOrdering = ref(false)
 
 const currentRelease = computed<Release | null>(() => {
     if (!releaseId.value) return null
@@ -193,7 +192,6 @@ async function handleAddTrack() {
 }
 
 async function handleReorder(track: Track, direction: 'up' | 'down') {
-    showOrdering.value = true
     try {
         await reorderTrack(track.id, direction, sortedTracks.value)
     } catch (e: any) {
@@ -261,11 +259,10 @@ async function handleDeleteTrack(track: Track) {
             <div class="tracks-section">
                 <div class="tracks-header">
                     <span class="tracks-label">Tracks</span>
-                    <span v-if="showOrdering" class="tracks-hint">Use arrows to set order</span>
                 </div>
                 <div v-if="sortedTracks.length" class="track-list">
                     <div v-for="(track, idx) in sortedTracks" :key="track.id" class="track-item">
-                        <div v-if="showOrdering" class="track-reorder">
+                        <div class="track-reorder">
                             <button class="reorder-btn" :disabled="idx === 0" title="Move up"
                                 @click="handleReorder(track, 'up')">▲</button>
                             <button class="reorder-btn"
@@ -383,7 +380,6 @@ async function handleDeleteTrack(track: Track) {
 }
 .tracks-header { display: flex; align-items: baseline; gap: 0.5rem; }
 .tracks-label { font-weight: 600; }
-.tracks-hint { font-size: 0.75rem; color: var(--color-text-muted); }
 
 .track-list {
     border: 1px solid rgba(0, 0, 0, 0.06);
