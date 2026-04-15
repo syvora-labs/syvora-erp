@@ -337,6 +337,6 @@ function handleCancel() {
     color: #fff;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    z-index: 100;
+    z-index: 600;
 }
 </style>

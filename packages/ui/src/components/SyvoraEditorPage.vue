@@ -138,23 +138,22 @@ const headerLabel = computed(() => {
 
 <style scoped>
 .editor-page {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 100vh;
     background: var(--color-bg, #f7f7f7);
 }
 
 .editor-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
     display: flex;
     align-items: center;
     gap: 0.75rem;
     padding: 0.875rem 1.25rem;
     background: #fff;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
 }
 
 .editor-back {
@@ -204,10 +203,6 @@ const headerLabel = computed(() => {
     padding: 1.5rem 0.75rem;
     border-right: 1px solid rgba(0, 0, 0, 0.06);
     background: #fff;
-    position: sticky;
-    top: 65px;
-    align-self: flex-start;
-    height: calc(100vh - 65px);
     overflow-y: auto;
 }
 
