@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { SyvoraButton, SyvoraCard, useIsMobile } from '@syvora/ui'
+import { Zip, ZipPassThrough } from 'fflate'
 
 const isMobile = useIsMobile()
 
@@ -32,6 +33,8 @@ const error = ref('')
 const errorStatus = ref<number | null>(null)
 const manifest = ref<Manifest | null>(null)
 const downloading = ref(false)
+const downloadProgress = ref(0)
+const downloadStatus = ref('')
 
 // Collapsed folder state
 const collapsed = ref<Set<string>>(new Set())
@@ -128,16 +131,97 @@ async function fetchManifest() {
     }
 }
 
+function slugify(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'press-kit'
+}
+
 async function startDownload() {
     downloading.value = true
+    downloadProgress.value = 0
+    downloadStatus.value = 'Preparing download…'
+
     try {
-        // The function is deployed with verify_jwt = false, so the browser can
-        // navigate straight to the URL without an apikey/Authorization header.
-        const url = `${EDGE_FN_URL}?token=${token.value}&mode=zip`
-        window.location.assign(url)
+        // 1. Fetch signed Storage URLs from the edge function.
+        downloadStatus.value = 'Generating download links…'
+        const res = await fetch(`${EDGE_FN_URL}?token=${token.value}&mode=download-urls`)
+        if (!res.ok) throw new Error('Failed to prepare download')
+        const payload: {
+            artist_name: string
+            folder_prefixes: string[]
+            entries: { archive_path: string; size_bytes: number; urls: string[] }[]
+        } = await res.json()
+
+        const totalBytes = payload.entries.reduce((acc, e) => acc + e.size_bytes, 0)
+        let bytesDownloaded = 0
+
+        // 2. Build the ZIP in the browser using fflate's streaming writer.
+        const chunks: Uint8Array[] = []
+        const zip = new Zip((err, data, _final) => {
+            if (err) throw err
+            if (data) chunks.push(data)
+        })
+
+        // Empty folder entries
+        for (const prefix of payload.folder_prefixes) {
+            const dir = new ZipPassThrough(prefix)
+            zip.add(dir)
+            dir.push(new Uint8Array(0), true)
+        }
+
+        // File entries — download each signed URL, pipe into a ZipPassThrough.
+        for (let i = 0; i < payload.entries.length; i += 1) {
+            const entry = payload.entries[i]
+            downloadStatus.value = `Downloading file ${i + 1} of ${payload.entries.length}…`
+
+            const passthrough = new ZipPassThrough(entry.archive_path)
+            zip.add(passthrough)
+
+            for (const url of entry.urls) {
+                const resp = await fetch(url)
+                if (!resp.ok || !resp.body) {
+                    // Skip this chunk — archive entry will still be present (truncated).
+                    continue
+                }
+                const reader = resp.body.getReader()
+                for (;;) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+                    if (value && value.byteLength > 0) {
+                        passthrough.push(value, false)
+                        bytesDownloaded += value.byteLength
+                        downloadProgress.value = Math.min(
+                            99,
+                            Math.round((bytesDownloaded / Math.max(totalBytes, 1)) * 100),
+                        )
+                    }
+                }
+            }
+            passthrough.push(new Uint8Array(0), true)
+        }
+
+        zip.end()
+
+        // 3. Assemble the output and trigger the browser download.
+        downloadStatus.value = 'Packaging ZIP…'
+        downloadProgress.value = 100
+        const blob = new Blob(chunks as BlobPart[], { type: 'application/zip' })
+        const blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = `${slugify(payload.artist_name)}-press-kit.zip`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+    } catch (err) {
+        console.error('ZIP download failed:', err)
+        downloadStatus.value = 'Download failed — please try again.'
+        // Keep the error visible for a moment before resetting.
+        await new Promise(r => setTimeout(r, 3000))
     } finally {
-        // Reset the loading state after a short delay — the browser has started the download.
-        setTimeout(() => { downloading.value = false }, 2000)
+        downloading.value = false
+        downloadProgress.value = 0
+        downloadStatus.value = ''
     }
 }
 
@@ -184,9 +268,12 @@ onMounted(fetchManifest)
                             This link expires on {{ formatDate(manifest.expires_at) }}.
                         </p>
                     </div>
-                    <SyvoraButton :loading="downloading" @click="startDownload">
-                        Download press kit (.zip)
-                    </SyvoraButton>
+                    <div class="pkp-cta-action">
+                        <SyvoraButton :loading="downloading" :disabled="downloading" @click="startDownload">
+                            {{ downloading ? `${downloadProgress}%` : 'Download press kit (.zip)' }}
+                        </SyvoraButton>
+                        <p v-if="downloadStatus" class="pkp-download-status">{{ downloadStatus }}</p>
+                    </div>
                 </div>
             </SyvoraCard>
 
@@ -256,8 +343,8 @@ onMounted(fetchManifest)
 
             <!-- Bottom CTA (mobile-friendly second shot) -->
             <div class="pkp-bottom-cta">
-                <SyvoraButton :loading="downloading" @click="startDownload">
-                    Download press kit (.zip)
+                <SyvoraButton :loading="downloading" :disabled="downloading" @click="startDownload">
+                    {{ downloading ? `${downloadProgress}%` : 'Download press kit (.zip)' }}
                 </SyvoraButton>
             </div>
         </div>
@@ -342,6 +429,8 @@ onMounted(fetchManifest)
     font-size: 0.8rem;
     color: var(--color-text-muted);
 }
+.pkp-cta-action { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; flex-shrink: 0; }
+.pkp-download-status { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
 
 .pkp-section-title { font-size: 1rem; font-weight: 700; margin: 0 0 0.75rem; color: var(--color-text); }
 

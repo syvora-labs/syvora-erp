@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { Zip, ZipPassThrough } from 'https://esm.sh/fflate@0.8.2?target=deno'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -39,13 +38,6 @@ function storagePathsForFile(file: Pick<PressKitFile, 'storage_path' | 'chunk_co
     const out: string[] = []
     for (let i = 0; i < n; i += 1) out.push(chunkPath(file.storage_path, i))
     return out
-}
-
-function slugify(name: string): string {
-    return name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'press-kit'
 }
 
 // Build a "Folder/Sub/" prefix for each folder id, resolved from a flat list.
@@ -144,82 +136,49 @@ Deno.serve(async (req) => {
             })
         }
 
-        // ── ZIP mode ──────────────────────────────────────────────────────────
-        if (mode === 'zip') {
+        // ── Download URLs mode ─────────────────────────────────────────────
+        // Returns short-lived signed Storage URLs for every file (chunk-aware).
+        // The browser assembles the ZIP client-side so we never stream GBs
+        // through the edge function (which has tight timeout and memory caps).
+        if (mode === 'download-urls') {
             const folderPaths = buildFolderPaths(folders)
-            const filename = `${slugify(artist.name)}-press-kit.zip`
 
-            // Streaming ZIP: pipe Storage object streams directly into fflate's Zip writer.
-            const stream = new ReadableStream<Uint8Array>({
-                start(controller) {
-                    const zip = new Zip((err, data, final) => {
-                        if (err) {
-                            controller.error(err)
-                            return
-                        }
-                        if (data) controller.enqueue(data)
-                        if (final) controller.close()
-                    })
+            // Collect every Storage object path we need to sign.
+            const allPaths: string[] = []
+            for (const file of files) {
+                for (const p of storagePathsForFile(file)) allPaths.push(p)
+            }
 
-                    ;(async () => {
-                        try {
-                            // Empty directory entries so empty folders still appear in the zip.
-                            for (const [, prefix] of folderPaths) {
-                                const dirEntry = new ZipPassThrough(prefix)
-                                zip.add(dirEntry)
-                                dirEntry.push(new Uint8Array(0), true)
-                            }
+            // Sign them in one batch (single POST to the Storage API).
+            let signedMap: Record<string, string> = {}
+            if (allPaths.length > 0) {
+                const { data: signed, error: signError } = await supabase.storage
+                    .from('press-kits')
+                    .createSignedUrls(allPaths, 3600) // 1 hour
+                if (signError) {
+                    return json({ error: 'Failed to sign download URLs' }, 500)
+                }
+                for (const entry of (signed ?? [])) {
+                    if (entry.signedUrl) signedMap[entry.path!] = entry.signedUrl
+                }
+            }
 
-                            // Files — one zip entry per logical file; for chunked files we
-                            // concatenate every part in order into the same zip entry so the
-                            // recipient sees one seamless file.
-                            for (const file of files) {
-                                const prefix = file.folder_id ? (folderPaths.get(file.folder_id) ?? '') : ''
-                                const archivePath = `${prefix}${file.name}`
-                                const passthrough = new ZipPassThrough(archivePath)
-                                zip.add(passthrough)
-
-                                const paths = storagePathsForFile(file)
-                                let wroteAny = false
-                                for (const path of paths) {
-                                    const { data: blob, error: dlError } = await supabase.storage
-                                        .from('press-kits')
-                                        .download(path)
-
-                                    if (dlError || !blob) {
-                                        // Skip this chunk but keep going — partial zip entry is
-                                        // still better than aborting the whole archive.
-                                        continue
-                                    }
-
-                                    const reader = blob.stream().getReader()
-                                    // eslint-disable-next-line no-constant-condition
-                                    while (true) {
-                                        const { done, value } = await reader.read()
-                                        if (done) break
-                                        if (value && value.byteLength > 0) {
-                                            passthrough.push(value, false)
-                                            wroteAny = true
-                                        }
-                                    }
-                                }
-
-                                // Finalise the entry (even if no chunk was readable, so the
-                                // zip central directory stays consistent).
-                                passthrough.push(new Uint8Array(0), true)
-                                // Avoid the unused-var lint if we later want to branch on wroteAny.
-                                void wroteAny
-                            }
-
-                            zip.end()
-                        } catch (err) {
-                            controller.error(err)
-                        }
-                    })()
-                },
+            // Structure: one entry per logical file, with archive path + ordered
+            // list of signed URLs (1 for single-object files, N for chunked).
+            const entries = files.map(file => {
+                const prefix = file.folder_id ? (folderPaths.get(file.folder_id) ?? '') : ''
+                const paths = storagePathsForFile(file)
+                return {
+                    archive_path: `${prefix}${file.name}`,
+                    size_bytes: file.size_bytes,
+                    urls: paths.map(p => signedMap[p] ?? null).filter(Boolean),
+                }
             })
 
-            // Update download counters (fire-and-forget; do not block the response stream).
+            // Also give the client the folder tree so it can add empty directory entries.
+            const folderEntries = Array.from(folderPaths.values())
+
+            // Increment download counter (fire-and-forget).
             const increment = async () => {
                 const { data: current } = await supabase
                     .from('artist_press_kit_share_links')
@@ -234,14 +193,10 @@ Deno.serve(async (req) => {
             }
             increment().catch((e) => console.error('Failed to increment download_count:', e))
 
-            return new Response(stream, {
-                status: 200,
-                headers: {
-                    ...corsHeaders,
-                    'Content-Type': 'application/zip',
-                    'Content-Disposition': `attachment; filename="${filename}"`,
-                    'Cache-Control': 'no-store',
-                },
+            return json({
+                artist_name: artist.name,
+                folder_prefixes: folderEntries,
+                entries,
             })
         }
 
